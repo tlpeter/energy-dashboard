@@ -10,6 +10,7 @@ const ha = require('./ha');
 const prices = require('./prices');
 const meters = require('./meters');
 const energy = require('./energy');
+const gas = require('./gas');
 const settingsMod = require('./settings');
 const { SUPPLIERS, CHECKED, presetFor } = require('./suppliers');
 const pkg = require('./package.json');
@@ -19,7 +20,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const APP_VERSION = pkg.version;
 
 let settings = settingsMod.load();
-const cache = { prices: null, pricesAt: 0, pricesError: null, pricesDay: null, solar: null, solarAt: 0 };
+const cache = { prices: null, pricesAt: 0, pricesError: null, pricesDay: null, solar: null, solarAt: 0, gas: null, gasAt: 0, gasError: null };
 
 // ------------------------------------------------------------------ helpers
 
@@ -60,7 +61,10 @@ const getState = (id) => ha.liveState(id);
 
 async function rewatch() {
   try {
-    await ha.watchEntities(energy.watchedEntities(settings));
+    const ids = energy.watchedEntities(settings);
+    const g = settings.price.gas;
+    if (g && g.source && g.source.type === 'state') ids.push(g.source.entity_id);
+    await ha.watchEntities(ids);
   } catch (err) {
     ha.warn('Could not watch entities:', err.message);
   }
@@ -84,6 +88,33 @@ async function refreshPrices(force = false) {
     ha.warn('Prices:', err.message);
   }
   return cache.prices;
+}
+
+// Gas prices (#6): every 15 minutes, like electricity.
+async function refreshGas(force = false) {
+  const g = settings.price.gas;
+  if (!g || !g.source || !(settings.meter && settings.meter.gas)) { cache.gas = null; return null; }
+  if (!force && cache.gas && Date.now() - cache.gasAt < 15 * 60000) return cache.gas;
+  try {
+    let st = ha.liveState(g.source.entity_id || '');
+    if (g.source.type === 'state' && !st) {
+      const all = await ha.call({ type: 'get_states' });
+      st = all.find((x) => x.entity_id === g.source.entity_id) || null;
+    }
+    cache.gas = await gas.fetchGas(g.source, tz(), () => st);
+    cache.gasAt = Date.now();
+    cache.gasError = null;
+  } catch (err) {
+    cache.gasError = err.message;
+    ha.warn('Gas prices:', err.message);
+  }
+  return cache.gas;
+}
+
+function currentGasView() {
+  const g = settings.price.gas;
+  if (!g || !cache.gas) return null;
+  return gas.gasView(cache.gas, g);
 }
 
 function currentPriceView() {
@@ -144,13 +175,26 @@ async function day(offset) {
   }
   const c = energy.costs(hours, list, settings.price);
   const gasRows = meter && meter.gas && stats[meter.gas] ? stats[meter.gas] : [];
-  const gas = gasRows.reduce((s, r) => s + (Number(r.change) || 0), 0);
+  let gasList = [];
+  const g = settings.price.gas;
+  if (g && g.source) {
+    if (offset === 0) await refreshGas();
+    if (cache.gas) gasList = gas.withTotals(cache.gas.prices, g);
+    if (offset < 0 && g.source.type !== 'fixed') {
+      gasList = gas.withTotals(gas.sortSlots(require('./pricehistory').range(g.source.id, from - 86400000, to)), g);
+    }
+  }
+  const gc = gas.gasCosts(gasRows, gasList, from, to);
   const fixedPerDay = Number(settings.price.fixed_month) ? Number(settings.price.fixed_month) * 12 / 365 : null;
   return {
     from, to,
     hours: hours.map((h) => ({ start: h.start, import: h.import, export: h.export, known: h.known })),
     ...c,
-    gas_m3: meter && meter.gas ? gas : null,
+    gas_m3: meter && meter.gas ? gc.m3 : null,
+    gas_cost: meter && meter.gas && gasList.length ? gc.cost : null,
+    gas_unpriced_m3: gc.unpriced_m3,
+    gas_hours: meter && meter.gas ? gc.hours.map((h) => ({ start: h.start, m3: h.m3, known: h.known })) : null,
+    gas_fixed_per_day: g && Number(g.fixed_month) ? Number(g.fixed_month) * 12 / 365 : null,
     fixed_per_day: fixedPerDay,
     priced: list.length > 0,
   };
@@ -200,6 +244,12 @@ async function detect() {
     ...m,
     sample_w: meters.gridPower({ ...m.roles }, (id) => stateById.get(id) || null),
   }));
+  let gasSources = [];
+  try {
+    gasSources = gas.detectGasSources(entities, states, services);
+  } catch (err) {
+    ha.warn('Gas price detection:', err.message);
+  }
   let sources = [];
   try {
     sources = prices.detectPriceSources(entities, devices, states, tz(), services);
@@ -209,6 +259,7 @@ async function detect() {
   return {
     meters: found,
     price_sources: sources,
+    gas_sources: gasSources,
     suppliers: SUPPLIERS.map((s) => ({ ...s, preset: presetFor(s.id) })),
     suppliers_checked: CHECKED,
     sensors,
@@ -257,6 +308,15 @@ function diagnostics() {
     prices_error: cache.pricesError ? 'yes' : 'no',
     interval_minutes: cache.prices ? cache.prices.interval_minutes : null,
     // Prices are market data, not data about the house.
+    gas_source_type: settings.price.gas && settings.price.gas.source ? settings.price.gas.source.type : null,
+    gas_price_type: settings.price.gas ? settings.price.gas.price_type : null,
+    gas_error: cache.gasError ? 'yes' : 'no',
+    gas_sample: (() => {
+      const v = currentGasView();
+      if (!v || !v.current) return null;
+      const r = (x) => (Number.isFinite(x) ? Math.round(x * 10000) / 10000 : null);
+      return { source_value_now: r(v.current.raw), all_in_now: r(v.current.total), plausibility: v.plausibility ? v.plausibility.code : null };
+    })(),
     price_sample: (() => {
       const v = currentPriceView();
       if (!v || !v.current) return null;
@@ -283,8 +343,10 @@ const routes = {
     settings = settingsMod.save(body);
     cache.pricesAt = 0;
     cache.solarAt = 0;
+    cache.gasAt = 0;
     await rewatch();
     refreshPrices(true).catch(() => {});
+    refreshGas(true).catch(() => {});
     return settings;
   },
   'GET /api/detect': detect,
@@ -303,6 +365,7 @@ const routes = {
         next_cheap: view.next_cheap,
       } : null,
       prices_error: cache.pricesError,
+      gas_price: (() => { const v = currentGasView(); return v && v.current ? v.current.total : null; })(),
     };
   },
   'GET /api/prices': async () => {
@@ -313,6 +376,11 @@ const routes = {
     const off = Number(url.searchParams.get('offset') || 0);
     if (!Number.isInteger(off) || off > 0 || off < -31) throw badRequest('Invalid day');
     return day(off);
+  },
+  'GET /api/gas': async () => {
+    await refreshGas();
+    const v = currentGasView();
+    return v ? { current: v.current, plausibility: v.plausibility, error: cache.gasError } : { current: null, error: cache.gasError || (settings.price.gas && settings.price.gas.source ? 'loading' : 'no_source') };
   },
   'GET /api/solar': async () => (await solar()) || { hours: [], note: 'off' },
   'GET /api/planners': async () => energy.planners(await ha.call({ type: 'get_states' })),
@@ -400,8 +468,13 @@ function start(port = PORT) {
         settings = settingsMod.load();
         await rewatch();
         await refreshPrices(true);
+        await refreshGas(true);
       });
-      const timer = setInterval(() => { if (ha.state.connected) refreshPrices().catch(() => {}); }, 60000);
+      const timer = setInterval(() => {
+        if (!ha.state.connected) return;
+        refreshPrices().catch(() => {});
+        refreshGas().catch(() => {});
+      }, 60000);
       timer.unref();
       ha.connect();
       resolve(server);

@@ -137,6 +137,26 @@ test('end to end against a fake Home Assistant', async (t) => {
     assert.strictEqual(bad.status, 400);
   });
 
+  await t.test('gas: price from EnergyZero, all-in, and costs today (#6)', async () => {
+    const det = (await request(port, 'GET', '/api/detect')).json;
+    const gsrc = det.gas_sources.find((x) => x.type === 'action' && x.domain === 'energyzero');
+    assert.ok(gsrc, 'EnergyZero gas found');
+    const cur = (await request(port, 'GET', '/api/settings')).json;
+    const r = await request(port, 'POST', '/api/settings', { ...cur, price: { ...cur.price, gas: { source: gsrc, price_type: gsrc.price_type, fee_incl_vat: 0.0591 } } });
+    assert.strictEqual(r.status, 200, r.text);
+    const g = await until(async () => {
+      const x = (await request(port, 'GET', '/api/gas')).json;
+      return x.current ? x : null;
+    });
+    assert.ok(Math.abs(g.current.total - (0.45 * 1.21 + 0.0591 + 0.7268)) < 1e-9);
+    assert.strictEqual(g.plausibility, null);
+    const d = (await request(port, 'GET', '/api/day?offset=0')).json;
+    assert.strictEqual(d.gas_m3, 1.5);
+    assert.ok(Math.abs(d.gas_cost - 1.5 * g.current.total) < 1e-9);
+    const live = (await request(port, 'GET', '/api/live')).json;
+    assert.ok(Math.abs(live.gas_price - g.current.total) < 1e-9);
+  });
+
   await t.test('history only for configured devices', async () => {
     assert.strictEqual((await request(port, 'GET', '/api/history?key=car')).status, 200);
     assert.strictEqual((await request(port, 'GET', '/api/history?key=sensor.anything')).status, 400);
@@ -158,6 +178,6 @@ test('end to end against a fake Home Assistant', async (t) => {
   await t.test('the app never sent a write command to Home Assistant', () => {
     const types = new Set(sent.map((m) => m.type));
     for (const ty of types) assert.ok(ty === 'auth' || ha.READ_ONLY_COMMANDS.has(ty) || ty === 'call_service', ty);
-    for (const m of sent.filter((x) => x.type === 'call_service')) assert.strictEqual(`${m.domain}.${m.service}`, 'energyzero.get_energy_prices');
+    for (const m of sent.filter((x) => x.type === 'call_service')) assert.ok(['energyzero.get_energy_prices', 'energyzero.get_gas_prices'].includes(`${m.domain}.${m.service}`));
   });
 });

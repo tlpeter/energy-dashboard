@@ -67,7 +67,7 @@ function fakeHA(port = 0, opts = {}) {
         case 'config/entity_registry/list': return ok(entities);
         case 'config/device_registry/list': return ok([{ id: 'dev_homewizard', name: 'P1 meter' }]);
         case 'get_states': return ok(states);
-        case 'get_services': return ok({ energyzero: { get_energy_prices: {} } });
+        case 'get_services': return ok({ energyzero: { get_energy_prices: {}, get_gas_prices: {} } });
         case 'subscribe_entities': {
           ok(null);
           const a = {};
@@ -77,6 +77,13 @@ function fakeHA(port = 0, opts = {}) {
         }
         case 'unsubscribe_events': return ok(null);
         case 'call_service': {
+          if (m.domain === 'energyzero' && m.service === 'get_gas_prices') {
+            const start = Date.parse(m.service_data.start);
+            const end = Date.parse(m.service_data.end);
+            const prices = [];
+            for (let t = start; t < end; t += H) prices.push({ timestamp: new Date(t).toISOString(), price: 0.45 });
+            return ok({ response: { prices } });
+          }
           if (m.domain === 'energyzero') {
             const start = Date.parse(m.service_data.start);
             const end = Date.parse(m.service_data.end);
@@ -97,7 +104,7 @@ function fakeHA(port = 0, opts = {}) {
             out[id] = [];
             const to = Math.min(Date.parse(m.end_time), Date.now());
             if (demo && m.period === 'hour') {
-              for (let t = from; t < to; t += H) out[id].push({ start: t, end: t + H, change: id.includes('import') ? USE[hourAms(t)] : id.includes('export') ? EXP[hourAms(t)] : 0 });
+              for (let t = from; t < to; t += H) out[id].push({ start: t, end: t + H, change: id.includes('import') ? USE[hourAms(t)] : id.includes('export') ? EXP[hourAms(t)] : id.includes('gas') ? [0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.4, 0.5, 0.3, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.3, 0.3, 0.2, 0.2, 0.1, 0.1, 0.1][hourAms(t)] : 0 });
             } else if (demo) {
               for (let t = from; t < to; t += 300000) {
                 const h = hourAms(t);

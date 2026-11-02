@@ -7,7 +7,7 @@
 const path = require('path');
 const { readJson, writeJsonAtomic } = require('./jsonstore');
 const { DATA_DIR } = require('./options');
-const { supplier, ENERGY_TAX_2026_INCL_VAT, VAT_PERCENT } = require('./suppliers');
+const { supplier, ENERGY_TAX_2026_INCL_VAT, ENERGY_TAX_GAS_2026_INCL_VAT, VAT_PERCENT } = require('./suppliers');
 
 const FILE = path.join(DATA_DIR, 'settings.json');
 
@@ -31,6 +31,7 @@ const DEFAULTS = {
     compare_tariff: null,
     export_mode: 'auto',
     export_fee_incl_vat: 0,
+    gas: null,
   },
   modules: [],
   edge: { reference: 'today_tomorrow', band: 25, width: 10, glow: 40, pulse: false },
@@ -108,6 +109,34 @@ function validateSource(s) {
   return bad('Price source: unknown type');
 }
 
+// Gas price (#6): source + surcharges, like electricity. Fixed = all-in per m³.
+function validateGas(g) {
+  if (!g) return null;
+  if (!isObj(g)) bad('Gas price: invalid');
+  let source = null;
+  const s = g.source;
+  if (s) {
+    if (!isObj(s)) bad('Gas price source: invalid');
+    if (s.type === 'fixed') source = { id: 'gas:fixed', type: 'fixed', price: num(s.price, 'Gas price per m³', 0, 10, null) };
+    else if (s.type === 'action') {
+      if (!['energyzero', 'easyenergy'].includes(s.domain) || !/^[A-Za-z0-9_]+$/.test(String(s.config_entry || ''))) bad('Gas price source: invalid integration');
+      source = { id: `gas:action:${s.domain}:${s.config_entry}`, type: 'action', domain: s.domain, config_entry: s.config_entry };
+    } else if (s.type === 'state') {
+      const id = entity(s.entity_id, 'Gas price sensor', true);
+      source = { id: `gas:state:${id}`, type: 'state', entity_id: id };
+    } else bad('Gas price source: unknown type');
+    if (source.type === 'fixed' && source.price === null) bad('Gas price per m³: fill in a price');
+  }
+  return {
+    source,
+    price_type: source && source.type === 'fixed' ? 'all_in' : oneOf(g.price_type, ['market_excl_vat', 'market_incl_vat', 'all_in'], 'market_excl_vat'),
+    fee_incl_vat: num(g.fee_incl_vat, 'Gas purchase fee', -1, 2, null),
+    energy_tax_incl_vat: num(g.energy_tax_incl_vat, 'Gas energy tax', 0, 3, ENERGY_TAX_GAS_2026_INCL_VAT),
+    vat_percent: num(g.vat_percent, 'Gas VAT', 0, 50, VAT_PERCENT),
+    fixed_month: num(g.fixed_month, 'Gas fixed costs per month', 0, 200, null),
+  };
+}
+
 function validatePrice(p) {
   const x = isObj(p) ? p : {};
   const sup = x.supplier && supplier(x.supplier) ? x.supplier : null;
@@ -122,6 +151,7 @@ function validatePrice(p) {
     compare_tariff: num(x.compare_tariff, 'Compare tariff', 0, 5, null),
     export_mode: oneOf(x.export_mode, ['auto', 'net_metering', 'market'], 'auto'),
     export_fee_incl_vat: num(x.export_fee_incl_vat, 'Export fee', -1, 1, 0),
+    gas: validateGas(x.gas),
   };
 }
 

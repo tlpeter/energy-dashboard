@@ -13,7 +13,7 @@
   const TILE_KEYS = ['cost', 'usage', 'gas', 'charging_planner', 'heating_planner', 'modules'];
   const TILE_LABEL = { cost: 'cost_today', usage: 'usage_today', gas: 'gas_today', charging_planner: 'charging_planner', heating_planner: 'heating_planner', modules: 'w_devices' };
 
-  const W = { wizard: true, step: 0, draft: null, detect: null, error: '', search: '', prices: null };
+  const W = { wizard: true, step: 0, draft: null, detect: null, error: '', search: '', prices: null, gas: null };
 
   const esc = (v) => ED.esc(v);
   const t = (k, v) => ED.t(k, v);
@@ -137,7 +137,40 @@
         ${field(t('compare_tariff'), numberInput('price.compare_tariff', p.compare_tariff))}
         ${field(t('export_mode'), select('price.export_mode', [['auto', 'em_auto'], ['net_metering', 'em_net'], ['market', 'em_market']].map(([v, k]) => `<option value="${v}"${p.export_mode === v ? ' selected' : ''}>${esc(t(k))}</option>`).join('')))}
         ${field(t('export_fee'), numberInput('price.export_fee_incl_vat', p.export_fee_incl_vat))}
-      </div>`;
+      </div>${secGas()}`;
+  }
+
+  // Gas price (#6): only with a gas meter.
+  function gasDraft() {
+    const p = W.draft.price;
+    if (!p.gas) p.gas = { source: null, price_type: 'market_excl_vat', fee_incl_vat: null, energy_tax_incl_vat: 0.7268, vat_percent: 21, fixed_month: null };
+    return p.gas;
+  }
+  function secGas() {
+    if (!W.draft.meter || !W.draft.meter.gas) return '';
+    const g = gasDraft();
+    const d = W.detect;
+    const srcId = g.source ? g.source.id : null;
+    const list = (d.gas_sources || []).map((x) => choice('gas-source', x.id, srcId === x.id, x.name, x.detail || ''));
+    list.push(choice('gas-source', 'gas:fixed', srcId === 'gas:fixed', t('gas_fixed')));
+    const fixed = srcId === 'gas:fixed';
+    let check = '';
+    const gv = W.gas;
+    const saved = ED.settings.price.gas;
+    if (gv && gv.current && saved && saved.source && saved.source.id === srcId) {
+      check = `<div class="hint">${esc(t('gas_source_now', { raw: ED.num(gv.current.raw, 3), total: ED.num(gv.current.total, 3) }))} ${esc(t('compare_supplier'))}</div>${gv.plausibility ? `<div class="warn">${esc(t('gas_looks_all_in'))}</div>` : ''}`;
+    }
+    const opt = [['market_excl_vat', 'pt_excl'], ['market_incl_vat', 'pt_incl'], ['all_in', 'pt_allin']].map(([v, k]) => `<option value="${v}"${g.price_type === v ? ' selected' : ''}>${esc(t(k))}</option>`).join('');
+    return `<div class="panel"><h3>${esc(t('w_gas'))}</h3>
+      <div class="hint">${esc(t('w_gas_hint'))}</div>
+      ${(d.gas_sources || []).length ? '' : `<div class="hint">${esc(t('gas_none_found'))}</div>`}
+      <div class="choices">${list.join('')}</div>
+      ${check}
+      ${fixed ? field(t('gas_fixed_price'), numberInput('price.gas.source.price', g.source.price)) : ''}
+      ${srcId && !fixed ? field(t('price_type'), select('price.gas.price_type', opt)) : ''}
+      ${srcId && !fixed && g.price_type !== 'all_in' ? field(t('gas_fee_incl'), numberInput('price.gas.fee_incl_vat', g.fee_incl_vat)) + field(t('gas_tax_incl'), numberInput('price.gas.energy_tax_incl_vat', g.energy_tax_incl_vat)) + field(t('vat_pct'), numberInput('price.gas.vat_percent', g.vat_percent)) : ''}
+      ${srcId ? field(t('gas_fixed_month'), numberInput('price.gas.fixed_month', g.fixed_month)) : ''}
+    </div>`;
   }
 
   // What the saved source gives now, and a warning when it looks all-in (#4).
@@ -250,6 +283,12 @@
     p.fixed_month = s.preset.fixed_month;
     p.energy_tax_incl_vat = s.preset.energy_tax_incl_vat;
     p.vat_percent = s.preset.vat_percent;
+    if (W.draft.meter && W.draft.meter.gas) {
+      const g = gasDraft();
+      g.fee_incl_vat = s.preset.gas_fee_incl_vat;
+      g.energy_tax_incl_vat = s.preset.gas_energy_tax_incl_vat;
+      g.vat_percent = s.preset.vat_percent;
+    }
     // The supplier's own integration, when it is installed.
     if (s.integration) {
       const src = W.detect.price_sources.find((x) => x.domain === s.integration);
@@ -275,6 +314,7 @@
   // Tidy the draft before it goes to the server.
   function cleaned() {
     const d = clone(W.draft);
+    if (d.price && d.price.gas && !d.price.gas.source) d.price.gas = null;
     if (d.meter) {
       delete d.meter.source_id;
       d.meter.energy_import = (d.meter.energy_import || []).filter(Boolean);
@@ -315,6 +355,20 @@
       case 'meter': pickMeter(value); break;
       case 'supplier': pickSupplier(value); break;
       case 'source': pickSource(value); break;
+      case 'gas-source': {
+        const g = gasDraft();
+        if (value === 'gas:fixed') {
+          g.source = { id: 'gas:fixed', type: 'fixed', price: (g.source && g.source.price) || null };
+          g.price_type = 'all_in';
+        } else {
+          const x = (W.detect.gas_sources || []).find((y) => y.id === value);
+          if (x) {
+            g.source = x.type === 'action' ? { id: x.id, type: 'action', domain: x.domain, config_entry: x.config_entry } : { id: x.id, type: 'state', entity_id: x.entity_id };
+            g.price_type = x.price_type || 'market_excl_vat';
+          }
+        }
+        break;
+      }
       case 'dev-add':
         W.draft.modules.push({ id: `dev_${Date.now().toString(36)}`, type: 'ev', name: t('ev'), power_entity: null, soc_entity: null, invert: false, enabled: true });
         break;
@@ -388,7 +442,7 @@
     if (!n.dataset.path) return;
     setPath(n.dataset.path, n.type === 'checkbox' ? n.checked : n.value, n.type);
     // Some choices change which fields are shown.
-    if (/^modules\.\d+\.type$|^theme\.night$|^price\.price_type$/.test(n.dataset.path)) render();
+    if (/^modules\.\d+\.type$|^theme\.night$|^price\.price_type$|^price\.gas\.price_type$|^meter\.gas$/.test(n.dataset.path)) render();
   });
   root.addEventListener('input', (e) => {
     if (e.target.dataset.action === 'search') {
@@ -413,6 +467,8 @@
       render();
       W.prices = null;
       ED.api('api/prices').then((pv) => { W.prices = pv; if (!$('setup').hidden) render(); }).catch(() => {});
+      W.gas = null;
+      ED.api('api/gas').then((gv) => { W.gas = gv; if (!$('setup').hidden) render(); }).catch(() => {});
       try {
         W.detect = await ED.api('api/detect');
       } catch (err) {

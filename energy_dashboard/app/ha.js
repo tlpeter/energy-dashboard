@@ -64,6 +64,8 @@ const READ_ONLY_ACTIONS = new Set([
   'easyenergy.get_energy_usage_prices',
   'tibber.get_prices',
   'nordpool.get_prices_for_date',
+  'energyzero.get_gas_prices',
+  'easyenergy.get_gas_prices',
 ]);
 const ACTION_TOKEN = Symbol('read-only action');
 

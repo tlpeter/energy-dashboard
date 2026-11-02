@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5-dev
+
+- Gas price and gas costs (#6). In Settings › Supplier & tariff (with a gas meter): EnergyZero or easyEnergy, a sensor with the gas price in €/m³, or a fixed price; purchase fee per m³ (starting values for six suppliers), energy tax on gas 2026 and VAT, with the same warning as #4 when the source already looks all-in.
+- Gas tile: m³ today, costs today and the price per m³. Tap it for the gas pop-up: price now with its build-up, m³ per hour, costs today and yesterday.
+- Cost tile and cost pop-up: electricity and gas together, both parts shown.
+
 ## 0.1.4-dev
 
 - Price chart: tapping a bar opens the price of that hour (or quarter), today or tomorrow: the all-in price, how it compares with the average, the build-up and low/high of that day. The tapped bar is marked. The price at the top still shows the price of now (#5).

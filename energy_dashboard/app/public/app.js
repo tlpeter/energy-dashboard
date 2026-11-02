@@ -342,8 +342,13 @@
     for (const key of st.tiles) {
       if (key === 'cost') {
         const sav = d && Number.isFinite(d.saving) ? d.saving : null;
-        const sub = sav === null ? (d && d.export_kwh > 0.05 ? t('exported', { v: num(d.export_kwh, 1) }) : '') : (sav >= 0 ? t('saved_vs', { v: num(sav) }) : t('extra_vs', { v: num(-sav) }));
-        box.appendChild(tile(t('cost_today'), d && d.priced ? `€ ${num(d.cost)}` : '—', sub, sav !== null && sav < 0 ? 'var(--bad)' : 'var(--good)', () => openPopup('cost')));
+        const hasGas = d && Number.isFinite(d.gas_cost);
+        let sub = sav === null ? (d && d.export_kwh > 0.05 ? t('exported', { v: num(d.export_kwh, 1) }) : '') : (sav >= 0 ? t('saved_vs', { v: num(sav) }) : t('extra_vs', { v: num(-sav) }));
+        let color = sav !== null && sav < 0 ? 'var(--bad)' : 'var(--good)';
+        // With gas: electricity + gas together, both parts underneath (#6).
+        if (hasGas) { sub = `${t('electricity')} € ${d.priced ? num(d.cost) : '—'} · ${t('gas_short')} € ${num(d.gas_cost)}`; color = 'var(--muted)'; }
+        const total = d && d.priced ? d.cost + (hasGas ? d.gas_cost : 0) : (hasGas ? d.gas_cost : null);
+        box.appendChild(tile(t('cost_today'), total !== null ? `€ ${num(total)}` : '—', sub, color, () => openPopup('cost')));
       } else if (key === 'usage') {
         const f = S.live && S.live.flows;
         let bar = '';
@@ -355,7 +360,9 @@
         box.appendChild(tile(t('usage_today'), d ? `${num(d.import_kwh, 1)} <small>kWh</small>` : '—', d && d.export_kwh > 0.05 ? t('exported', { v: num(d.export_kwh, 1) }) : '', null, () => openPopup('usage'), bar));
       } else if (key === 'gas') {
         if (!st.meter || !st.meter.gas) continue;
-        box.appendChild(tile(t('gas_today'), d && d.gas_m3 !== null ? `${num(d.gas_m3, 2)} <small>m³</small>` : '—', '', null, () => openPopup('usage')));
+        const gp = S.live && S.live.gas_price;
+        const gsub = [d && Number.isFinite(d.gas_cost) ? `€ ${num(d.gas_cost)}` : '', Number.isFinite(gp) ? `€ ${num(gp)}/m³` : ''].filter(Boolean).join(' · ');
+        box.appendChild(tile(t('gas_today'), d && d.gas_m3 !== null ? `${num(d.gas_m3, 2)} <small>m³</small>` : '—', gsub, null, () => openPopup('gas')));
       } else if (key === 'charging_planner' || key === 'heating_planner') {
         const list = S.planners ? S.planners[key] : null;
         const sum = plannerSummary(list, key);
@@ -446,10 +453,33 @@
     if (kind === 'cost' || kind === 'usage') {
       const [today, yday] = await Promise.all([api('api/day?offset=0'), api('api/day?offset=-1').catch(() => null)]);
       const fixed = today.fixed_per_day ? stat(t('fixed_costs'), `€ ${num(today.fixed_per_day)}`) : '';
-      const rows = `<div class="stats">${stat(t('today'), today.priced ? `€ ${num(today.cost)}` : '—')}${stat(t('yesterday'), yday && yday.priced ? `€ ${num(yday.cost)}` : '—')}${stat(t('import_today'), `${num(today.import_kwh, 1)} kWh`)}${stat(t('export_today'), `${num(today.export_kwh, 1)} kWh`)}${fixed}${today.gas_m3 !== null ? stat(t('gas_today'), `${num(today.gas_m3, 2)} m³`) : ''}</div>`;
+      const gasCost = (d) => (d && Number.isFinite(d.gas_cost) ? d.gas_cost : null);
+      const gasRow = gasCost(today) !== null || (yday && gasCost(yday) !== null)
+        ? `${stat(t('gas_cost_today'), gasCost(today) !== null ? `€ ${num(today.gas_cost)}` : '—')}${stat(t('gas_cost_yesterday'), yday && gasCost(yday) !== null ? `€ ${num(yday.gas_cost)}` : '—')}` : '';
+      const rows = `<div class="stats">${stat(t(gasRow ? 'elec_today' : 'today'), today.priced ? `€ ${num(today.cost)}` : '—')}${stat(t(gasRow ? 'elec_yesterday' : 'yesterday'), yday && yday.priced ? `€ ${num(yday.cost)}` : '—')}${gasRow}${stat(t('import_today'), `${num(today.import_kwh, 1)} kWh`)}${stat(t('export_today'), `${num(today.export_kwh, 1)} kWh`)}${fixed}${today.gas_m3 !== null ? stat(t('gas_today'), `${num(today.gas_m3, 2)} m³`) : ''}</div>`;
       const series = [today.hours.map((h) => ({ t: h.start, v: h.known ? h.import : null })), today.hours.map((h) => ({ t: h.start, v: h.known ? h.export : null }))];
       const note = today.unpriced_kwh > 0.01 ? `<div class="hint">${esc(t('not_priced'))}</div>` : '';
       return { title: kind === 'cost' ? t('cost') : t('tab_usage'), html: `${rows}${miniChart(series, ['#4da3ff', '#f5c542'])}${note}` };
+    }
+    if (kind === 'gas') {
+      const [g, today, yday] = await Promise.all([api('api/gas'), api('api/day?offset=0'), api('api/day?offset=-1').catch(() => null)]);
+      const cur = g && g.current;
+      let bar = '';
+      if (cur && cur.parts) {
+        const b = cur.parts;
+        const parts = [[t('market'), b.market, '#4da3ff'], [t('fee'), b.fee, '#8fc4ff'], [t('tax'), b.tax, '#ffc699'], [t('vat'), b.vat, '#ff9a4d']];
+        const tot = parts.reduce((x, p) => x + Math.max(0, p[1]), 0) || 1;
+        bar = `<div class="small muted">${esc(t('gas_build_up'))}</div><div class="stack-bar">${parts.map((p) => `<span style="flex:${Math.max(0.02, Math.max(0, p[1]) / tot)};background:${p[2]}">${esc(p[0])} € ${num(p[1], 3)}</span>`).join('')}</div>`;
+      }
+      const series = today.gas_hours ? [today.gas_hours.map((h) => ({ t: h.start, v: h.known ? h.m3 : null }))] : [];
+      const warn = (g && g.plausibility ? `<div class="warn">${esc(t('gas_looks_all_in'))}</div>` : '')
+        + (!cur ? `<div class="hint">${esc(t('gas_no_price'))}</div>` : '')
+        + (today.gas_unpriced_m3 > 0.001 ? `<div class="hint">${esc(t('not_priced'))}</div>` : '');
+      const fixed = today.gas_fixed_per_day ? stat(t('fixed_costs'), `€ ${num(today.gas_fixed_per_day)}`) : '';
+      return {
+        title: t('gas_title'),
+        html: `<div class="stats">${stat(t('gas_price_now'), cur ? `€ ${num(cur.total)}` : '—')}${stat(t('gas_today'), today.gas_m3 !== null ? `${num(today.gas_m3, 2)} m³` : '—')}${stat(t('gas_cost_today'), Number.isFinite(today.gas_cost) ? `€ ${num(today.gas_cost)}` : '—')}${stat(t('gas_cost_yesterday'), yday && Number.isFinite(yday.gas_cost) ? `€ ${num(yday.gas_cost)}` : '—')}${fixed}</div>${bar}<div class="small muted">${esc(t('gas_per_hour'))}</div>${miniChart(series, ['#ff9a4d'])}${warn}`,
+      };
     }
     if (kind.startsWith('module:')) {
       const id = kind.slice(7);
