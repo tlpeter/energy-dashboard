@@ -86,7 +86,17 @@ function priceView(result, settings, now = Date.now()) {
     vat: settings.price.price_type === 'all_in' ? null : current.total - current.total / vatF,
     total: current.total,
   } : null;
+  // Plausibility (#4): a Dutch market price excl. VAT is rarely above
+  // € 0.20/kWh on average. Higher means the source probably already includes
+  // tax and VAT, and the app would add them a second time.
+  let plausibility = null;
+  if (settings.price.price_type !== 'all_in' && today.length) {
+    const marketExcl = today.map((p) => (settings.price.price_type === 'market_incl_vat' ? p.raw / vatF : p.raw));
+    const avgMarket = marketExcl.reduce((a, b) => a + b, 0) / marketExcl.length;
+    if (avgMarket > 0.2) plausibility = { code: 'looks_all_in', average_market_excl_vat: avgMarket };
+  }
   return {
+    plausibility,
     interval_minutes: result.interval_minutes,
     window: win,
     prices: list,

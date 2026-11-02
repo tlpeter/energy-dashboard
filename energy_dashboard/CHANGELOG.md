@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3-dev
+
+- Warning when a price source looks all-in or incl. VAT while it is set as a market price: then the fee, energy tax and VAT would be counted twice. Shown in the price pop-up and in Settings › Supplier & tariff, with what the source gives now and the all-in result (#4).
+- Diagnostics include the price of the source now and the all-in result (market data, nothing about the house).
+
 ## 0.1.2-dev
 
 - Parts that are not set up are not shown: Solar and Battery only appear in the energy flows when you added them, and the Solar forecast tab only with a solar device. Without them the flows use the free space (#2).

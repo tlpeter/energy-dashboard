@@ -99,3 +99,15 @@ test('planners: only the apps\' own sensors', () => {
   assert.strictEqual(p.charging_planner.length, 1);
   assert.strictEqual(p.heating_planner, null);
 });
+
+test('plausibility: a source that is already all-in is flagged (#4)', () => {
+  const base = Date.UTC(2026, 10, 2, 0);
+  const mk = (raw) => ({ interval_minutes: 60, window: { start: base, tomorrow: base + 24 * H, end: base + 48 * H }, prices: raw.map((p, i) => ({ start: base + i * H, end: base + (i + 1) * H, price: p })) });
+  const allInValues = Array.from({ length: 24 }, (_, i) => 0.37 + (i % 6) * 0.02);
+  const incl = settings.validate({ price: { price_type: 'market_incl_vat', fee_incl_vat: 0.018 } });
+  assert.strictEqual(energy.priceView(mk(allInValues), incl, base + H).plausibility.code, 'looks_all_in');
+  const marketValues = Array.from({ length: 24 }, (_, i) => 0.06 + (i % 6) * 0.02);
+  assert.strictEqual(energy.priceView(mk(marketValues), incl, base + H).plausibility, null);
+  const allIn = settings.validate({ price: { price_type: 'all_in' } });
+  assert.strictEqual(energy.priceView(mk(allInValues), allIn, base + H).plausibility, null);
+});

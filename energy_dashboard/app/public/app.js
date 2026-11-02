@@ -409,7 +409,7 @@
       if (pv.today.cheap) tags.push(`<span class="tag good">${esc(t('cheap'))}: ${hhmm(pv.today.cheap.start)}–${hhmm(pv.today.cheap.end)} · € ${num(pv.today.cheap.average)}</span>`);
       if (pv.today.dear) tags.push(`<span class="tag bad">${esc(t('expensive'))}: ${hhmm(pv.today.dear.start)}–${hhmm(pv.today.dear.end)} · € ${num(pv.today.dear.average)}</span>`);
       if (pv.tomorrow && pv.tomorrow.cheap) tags.push(`<span class="tag good">${esc(t('tomorrow'))}: ${hhmm(pv.tomorrow.cheap.start)}–${hhmm(pv.tomorrow.cheap.end)} · € ${num(pv.tomorrow.cheap.average)}</span>`);
-      const warn = (pv.warnings || []).map((w) => `<div class="warn">${esc(w)}</div>`).join('');
+      const warn = (pv.plausibility ? `<div class="warn">${esc(t('looks_all_in'))}</div>` : '') + (pv.warnings || []).map((w) => `<div class="warn">${esc(w)}</div>`).join('');
       return {
         title: t('tab_price'),
         html: `<div class="stats">${stat(t('now'), `€ ${num(pv.current.total)}`, pv.now_color)}${stat(t('average'), `€ ${num(pv.today.average)}`)}${stat(t('lowest'), pv.today.low ? `€ ${num(pv.today.low.total)}` : '—', 'var(--good)')}${stat(t('highest'), pv.today.high ? `€ ${num(pv.today.high.total)}` : '—', 'var(--bad)')}</div>${bar}<div class="tags">${tags.join('')}</div>${warn}`,

@@ -13,7 +13,7 @@
   const TILE_KEYS = ['cost', 'usage', 'gas', 'charging_planner', 'heating_planner', 'modules'];
   const TILE_LABEL = { cost: 'cost_today', usage: 'usage_today', gas: 'gas_today', charging_planner: 'charging_planner', heating_planner: 'heating_planner', modules: 'w_devices' };
 
-  const W = { wizard: true, step: 0, draft: null, detect: null, error: '', search: '' };
+  const W = { wizard: true, step: 0, draft: null, detect: null, error: '', search: '', prices: null };
 
   const esc = (v) => ED.esc(v);
   const t = (k, v) => ED.t(k, v);
@@ -126,6 +126,7 @@
         ${d.price_sources.length ? '' : `<div class="hint">${esc(t('w_source_none'))}</div>`}
         <div class="choices">${sources.join('')}</div>
         ${fixed}
+        ${priceCheck(srcId)}
         ${srcId && srcId !== 'fixed' ? field(t('price_type'), select('price.price_type', [['market_excl_vat', 'pt_excl'], ['market_incl_vat', 'pt_incl'], ['all_in', 'pt_allin']].map(([v, k]) => `<option value="${v}"${p.price_type === v ? ' selected' : ''}>${esc(t(k))}</option>`).join(''))) : ''}
       </div>
       <div class="panel">
@@ -137,6 +138,14 @@
         ${field(t('export_mode'), select('price.export_mode', [['auto', 'em_auto'], ['net_metering', 'em_net'], ['market', 'em_market']].map(([v, k]) => `<option value="${v}"${p.export_mode === v ? ' selected' : ''}>${esc(t(k))}</option>`).join('')))}
         ${field(t('export_fee'), numberInput('price.export_fee_incl_vat', p.export_fee_incl_vat))}
       </div>`;
+  }
+
+  // What the saved source gives now, and a warning when it looks all-in (#4).
+  function priceCheck(srcId) {
+    const pv = W.prices;
+    if (!pv || !pv.current || !ED.settings.price.source || ED.settings.price.source.id !== srcId) return '';
+    const n = (v) => ED.num(v, 3);
+    return `<div class="hint">${esc(t('source_now', { raw: n(pv.current.raw), total: n(pv.current.total) }))} ${esc(t('compare_supplier'))}</div>${pv.plausibility ? `<div class="warn">${esc(t('looks_all_in'))}</div>` : ''}`;
   }
 
   const TYPES = ['ev', 'heatpump', 'solar', 'battery', 'device'];
@@ -402,6 +411,8 @@
       $('setup').hidden = false;
       ED.closePopup();
       render();
+      W.prices = null;
+      ED.api('api/prices').then((pv) => { W.prices = pv; if (!$('setup').hidden) render(); }).catch(() => {});
       try {
         W.detect = await ED.api('api/detect');
       } catch (err) {

@@ -256,6 +256,13 @@ function diagnostics() {
     prices_ok: !!cache.prices,
     prices_error: cache.pricesError ? 'yes' : 'no',
     interval_minutes: cache.prices ? cache.prices.interval_minutes : null,
+    // Prices are market data, not data about the house.
+    price_sample: (() => {
+      const v = currentPriceView();
+      if (!v || !v.current) return null;
+      const r = (x) => (Number.isFinite(x) ? Math.round(x * 10000) / 10000 : null);
+      return { source_value_now: r(v.current.raw), all_in_now: r(v.current.total), plausibility: v.plausibility ? v.plausibility.code : null };
+    })(),
   };
 }
 
