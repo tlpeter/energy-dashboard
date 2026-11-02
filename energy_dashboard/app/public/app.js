@@ -159,20 +159,24 @@
     const consumers = mods.filter((m) => ['ev', 'heatpump', 'device'].includes(m.type)).slice(0, SLOTS.length);
 
     // lines first, nodes on top
-    const has = (type) => mods.some((m) => m.type === type);
-    const ghost = (a, b) => el('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: '#2a3340', 'stroke-width': 3, 'stroke-dasharray': '4 8' }, svg);
-    if (has('solar')) link(svg, SOLAR, HOME, 'var(--solar)', f && f.solar_w, false); else ghost(SOLAR, HOME);
-    if (has('battery')) link(svg, HOME, BATT, 'var(--battery)', f && f.battery_w, f && f.battery_w < 0); else ghost(HOME, BATT);
+    const solarMod = mods.find((m) => m.type === 'solar');
+    const battMod = mods.find((m) => m.type === 'battery');
+    // Without solar and battery the top row is empty: show less of the top.
+    svg.setAttribute('viewBox', solarMod || battMod ? '0 0 520 520' : '0 150 520 380');
+    if (solarMod) link(svg, SOLAR, HOME, 'var(--solar)', f && f.solar_w, false);
+    if (battMod) link(svg, HOME, BATT, 'var(--battery)', f && f.battery_w, f && f.battery_w < 0);
     link(svg, GRID, HOME, 'var(--grid)', grid && grid.net_w, grid && grid.net_w < 0);
     consumers.forEach((m, i) => link(svg, HOME, SLOTS[i], TYPE_COLOR[m.type], m.power_w, m.power_w < 0));
 
-    const solarMod = mods.find((m) => m.type === 'solar');
-    const battMod = mods.find((m) => m.type === 'battery');
-    const sp = power(f && f.solar_w);
-    node(svg, SOLAR[0], SOLAR[1], 40, 'var(--solar)', solarMod ? sp.v : '', solarMod ? sp.u : t('not_set'), t('solar'), SOLAR[1] - 52, !solarMod);
-    const bp = power(f && f.battery_w);
-    const bsub = battMod ? `${bp.u}${battMod.soc !== null ? ` · ${Math.round(battMod.soc)}%` : ''}` : t('not_set');
-    node(svg, BATT[0], BATT[1], 40, 'var(--battery)', battMod ? bp.v : '', bsub, t('battery'), BATT[1] - 52, !battMod);
+    if (solarMod) {
+      const sp = power(f && f.solar_w);
+      node(svg, SOLAR[0], SOLAR[1], 40, 'var(--solar)', sp.v, sp.u, solarMod.name, SOLAR[1] - 52, false);
+    }
+    if (battMod) {
+      const bp = power(f && f.battery_w);
+      const bsub = `${bp.u}${battMod.soc !== null ? ` · ${Math.round(battMod.soc)}%` : ''}`;
+      node(svg, BATT[0], BATT[1], 40, 'var(--battery)', bp.v, bsub, battMod.name, BATT[1] - 52, false);
+    }
 
     const gp = power(grid && grid.net_w);
     const gsub = grid ? `${gp.u} ${grid.net_w < 0 ? t('exporting') : t('importing')}` : t('not_set');
@@ -245,7 +249,11 @@
     const svg = $('chart');
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     $('chartNote').textContent = '';
-    chips($('chartTabs'), [['price', t('tab_price')], ['usage', t('tab_usage')], ['solar', t('tab_solar')]], S.chartTab, (k) => {
+    const hasSolarTab = S.settings && S.settings.modules.some((m) => m.enabled && m.type === 'solar');
+    if (!hasSolarTab && S.chartTab === 'solar') S.chartTab = 'price';
+    const tabs = [['price', t('tab_price')], ['usage', t('tab_usage')]];
+    if (hasSolarTab) tabs.push(['solar', t('tab_solar')]);
+    chips($('chartTabs'), tabs, S.chartTab, (k) => {
       S.chartTab = k;
       S.chartDay = 0;
       renderChart();
@@ -296,11 +304,11 @@
 
   // ---------------------------------------------------------------- tiles
 
-  function tile(label, value, sub, subColor, onClick, extra) {
+  function tile(label, value, sub, subColor, onClick, extra, textValue) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'card tile';
-    b.innerHTML = `<span class="lbl">${esc(label)}</span><span class="val">${value}</span>${extra || ''}<span class="sub" style="color:${subColor || 'var(--muted)'}">${esc(sub || '')}</span>`;
+    b.innerHTML = `<span class="lbl">${esc(label)}</span><span class="val${textValue ? ' txt' : ''}">${value}</span>${extra || ''}<span class="sub" style="color:${subColor || 'var(--muted)'}">${esc(sub || '\u00a0')}</span>`;
     b.addEventListener('click', onClick);
     return b;
   }
@@ -348,7 +356,7 @@
       } else if (key === 'charging_planner' || key === 'heating_planner') {
         const list = S.planners ? S.planners[key] : null;
         const sum = plannerSummary(list, key);
-        box.appendChild(tile(t(key), sum ? sum.value : '—', sum ? sum.sub : t('not_found'), null, () => openPopup(`planner:${key}`)));
+        box.appendChild(tile(t(key), sum ? sum.value : '—', sum ? sum.sub : t('not_found'), null, () => openPopup(`planner:${key}`), '', !!sum));
       } else if (key === 'modules') {
         const f = S.live && S.live.flows;
         for (const m of (f ? f.modules : [])) {
@@ -357,6 +365,11 @@
         }
       }
     }
+    // More tiles: more columns, so there are never more than two rows.
+    const n = box.children.length;
+    const cols = n <= 4 ? 2 : n <= 6 ? 3 : 4;
+    box.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    box.classList.toggle('compact', cols > 2);
   }
 
   // ---------------------------------------------------------------- pop-ups

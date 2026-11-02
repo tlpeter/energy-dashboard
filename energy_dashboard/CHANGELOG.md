@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2-dev
+
+- Parts that are not set up are not shown: Solar and Battery only appear in the energy flows when you added them, and the Solar forecast tab only with a solar device. Without them the flows use the free space (#2).
+- Tiles: more tiles get more columns (up to four, never more than two rows), so the labels at the top are no longer cut off; text values such as a planner status wrap to two lines (#3).
+
 ## 0.1.1-dev
 
 - README with screenshots (made-up demo data) (#1).
