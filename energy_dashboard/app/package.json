@@ -1,0 +1,14 @@
+{
+  "name": "energy-dashboard",
+  "version": "0.1.0",
+  "description": "Interactive energy dashboard for Home Assistant on a wall tablet.",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "test": "node --test ../../tests/"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,4 @@
+configuration:
+  log_level:
+    name: Logniveau
+    description: Hoeveel de app in zijn log schrijft. Gebruik debug bij het melden van een probleem. Al het andere stel je in de app zelf in (tandwiel rechtsboven).

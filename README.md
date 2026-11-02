@@ -2,7 +2,7 @@
 
 An interactive energy dashboard for Home Assistant, made for a wall tablet (kiosk).
 
-> **Under construction.** Not installable yet. The `dev` branch is the test version.
+> **Test version.** Install from the `dev` branch: see [DOCS.md](energy_dashboard/DOCS.md).
 
 - Live energy flows: grid (P1 meter), home, car, heat pump, solar and battery (each a module you switch on).
 - Electricity price of today and tomorrow, all-in, with a coloured edge around the screen: green is cheap, red is expensive, compared with the average.

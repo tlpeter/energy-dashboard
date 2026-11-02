@@ -87,12 +87,13 @@ function call(message, timeoutMs = 20000, token = null) {
     const id = nextId++;
     pending.set(id, { resolve, reject, message });
     socket.send(JSON.stringify({ id, ...message }));
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
         reject(new Error('Timeout waiting for Home Assistant'));
       }
     }, timeoutMs);
+    if (timer.unref) timer.unref();
   });
 }
 
@@ -223,7 +224,8 @@ function connect() {
     subscriptionId = null;
     for (const { reject } of pending.values()) reject(new Error('Connection closed'));
     pending.clear();
-    setTimeout(connect, RECONNECT_MS);
+    const again = setTimeout(connect, RECONNECT_MS);
+    if (again.unref && process.env.ED_TEST === '1') again.unref();
   });
 }
 

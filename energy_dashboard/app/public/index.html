@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Energy Dashboard</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="frame" class="frame">
+  <div id="app" class="app">
+    <header class="top">
+      <div class="clock"><span id="clock">--:--</span><span id="date" class="muted"></span></div>
+      <button id="priceNow" class="pill price-pill" type="button">
+        <span id="priceDot" class="dot"></span>
+        <span class="stack">
+          <span id="priceLabel" class="muted small"></span>
+          <span class="big"><span id="priceValue">—</span> <span class="unit" id="priceUnit"></span></span>
+        </span>
+        <span id="priceDev" class="dev"></span>
+      </button>
+      <div class="top-right">
+        <div class="stack right">
+          <span id="cheapLabel" class="muted small"></span>
+          <span id="cheapValue" class="cheap"></span>
+        </div>
+        <button id="openSettings" class="icon-btn" type="button" aria-label="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <button id="flowCard" class="card flow-card" type="button">
+        <div class="card-head"><span id="flowTitle" class="h"></span><span id="flowLive" class="muted small"></span></div>
+        <svg id="flow" class="flow" viewBox="0 0 520 520" aria-hidden="true"></svg>
+      </button>
+
+      <div class="right-col">
+        <section class="card chart-card">
+          <div class="card-head">
+            <div class="chips" id="chartTabs"></div>
+            <div class="chips" id="dayTabs"></div>
+          </div>
+          <button id="chartBtn" class="chart-btn" type="button">
+            <svg id="chart" class="chart" viewBox="0 0 600 220" preserveAspectRatio="none" aria-hidden="true"></svg>
+            <div id="chartAxis" class="axis"></div>
+            <div id="chartNote" class="note"></div>
+          </button>
+        </section>
+        <div id="tiles" class="tiles"></div>
+      </div>
+    </main>
+    <div id="banner" class="banner" hidden></div>
+  </div>
+
+  <div id="popup" class="overlay" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="popTitle">
+      <div class="dialog-head">
+        <h2 id="popTitle"></h2>
+        <div class="row">
+          <span id="popTimer" class="muted small"></span>
+          <button id="popClose" class="icon-btn" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div id="popBody" class="dialog-body"></div>
+    </div>
+  </div>
+
+  <div id="setup" class="setup" hidden></div>
+</div>
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script src="wizard.js"></script>
+</body>
+</html>

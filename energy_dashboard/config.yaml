@@ -1,0 +1,20 @@
+name: Energy Dashboard (dev)
+version: "0.1.0-dev"
+slug: energy_dashboard
+description: "TEST VERSION: Interactive energy dashboard for a wall tablet: live flows, prices with a green-to-red edge, costs and planners."
+url: https://github.com/tlpeter/energy-dashboard
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: auto
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:lightning-bolt-circle
+panel_title: Energy (dev)
+homeassistant_api: true
+options:
+  log_level: info
+schema:
+  log_level: list(debug|info|warning|error)

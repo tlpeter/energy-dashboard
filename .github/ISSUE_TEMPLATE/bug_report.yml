@@ -1,0 +1,27 @@
+name: Bug report
+description: Something does not work or shows the wrong value.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not post entity ids, addresses or screenshots with personal data. Settings › Download diagnostics gives an anonymous file you can attach.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens, and what did you expect?
+    validations:
+      required: true
+  - type: input
+    id: meter
+    attributes:
+      label: P1 meter and price source
+      placeholder: e.g. HomeWizard P1, EnergyZero
+  - type: input
+    id: versions
+    attributes:
+      label: App version and Home Assistant version
+  - type: textarea
+    id: diag
+    attributes:
+      label: Diagnostics (optional)
+      render: json

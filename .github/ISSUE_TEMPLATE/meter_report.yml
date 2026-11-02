@@ -1,0 +1,21 @@
+name: Meter test report
+description: Tell us which P1 meter or price source you tested on real hardware, also when it works.
+labels: [meter report]
+body:
+  - type: input
+    id: meter
+    attributes:
+      label: Meter / integration (and its version)
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options: [Everything correct, Partly correct, Not working]
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes (no entity ids or personal data)

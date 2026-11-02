@@ -1,0 +1,57 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Syntax and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+        working-directory: energy_dashboard/app
+      - name: Check JavaScript syntax
+        shell: bash
+        run: find energy_dashboard/app tests -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check
+      - name: Versions match
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG=$(grep -m1 '^version:' energy_dashboard/config.yaml | sed -E 's/^version:[[:space:]]*"?([^"]+)"?.*/\1/')
+          PKG=$(node -p "require('./energy_dashboard/app/package.json').version")
+          LOCK=$(node -p "require('./energy_dashboard/app/package-lock.json').version")
+          echo "config $CFG, package $PKG, lock $LOCK"
+          test "${CFG%-dev}" = "$PKG" && test "$PKG" = "$LOCK"
+      - name: Run the tests
+        run: node --test --test-timeout=60000 tests/*.test.js
+      - name: npm audit
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: energy_dashboard/app
+
+  build:
+    name: Docker build (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: energy_dashboard
+          platforms: linux/${{ matrix.arch }}
+          push: false

@@ -1,0 +1,4 @@
+configuration:
+  log_level:
+    name: Log level
+    description: How much the app writes to its log. Use debug when reporting a problem. Everything else is set inside the app (gear at the top right).
