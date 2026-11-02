@@ -111,3 +111,16 @@ test('plausibility: a source that is already all-in is flagged (#4)', () => {
   const allIn = settings.validate({ price: { price_type: 'all_in' } });
   assert.strictEqual(energy.priceView(mk(allInValues), allIn, base + H).plausibility, null);
 });
+
+test('every price slot has its own build-up (#5)', () => {
+  const s = settings.validate({ price: { price_type: 'market_excl_vat', fee_incl_vat: 0.0242, energy_tax_incl_vat: 0.11085 } });
+  const base = Date.UTC(2026, 10, 2, 0);
+  const result = { interval_minutes: 60, window: { start: base, tomorrow: base + 2 * H, end: base + 4 * H }, prices: [0.1, 0.2, 0.05, 0.3].map((p, i) => ({ start: base + i * H, end: base + (i + 1) * H, price: p })) };
+  const v = energy.priceView(result, s, base + 0.5 * H);
+  for (const p of v.prices) {
+    const b = p.parts;
+    assert.strictEqual(b.market, p.raw);
+    assert.ok(Math.abs(b.market + b.fee + b.tax + b.vat - p.total) < 1e-9);
+  }
+  assert.notStrictEqual(v.prices[3].parts.total, v.breakdown.total);
+});

@@ -79,13 +79,17 @@ function priceView(result, settings, now = Date.now()) {
   const min = (l) => (l.length ? l.reduce((a, b) => (b.total < a.total ? b : a)) : null);
   const max = (l) => (l.length ? l.reduce((a, b) => (b.total > a.total ? b : a)) : null);
   const vatF = 1 + cfg.vat_percent / 100;
-  const breakdown = current ? {
-    market: settings.price.price_type === 'all_in' ? null : (settings.price.price_type === 'market_incl_vat' ? current.raw / vatF : current.raw),
-    fee: settings.price.price_type === 'all_in' ? null : cfg.purchase_fee,
-    tax: settings.price.price_type === 'all_in' ? null : cfg.energy_tax,
-    vat: settings.price.price_type === 'all_in' ? null : current.total - current.total / vatF,
-    total: current.total,
-  } : null;
+  // Build-up of one slot: market (excl. VAT), fee, tax, VAT, total.
+  const allIn = settings.price.price_type === 'all_in';
+  const partsOf = (p) => ({
+    market: allIn ? null : (settings.price.price_type === 'market_incl_vat' ? p.raw / vatF : p.raw),
+    fee: allIn ? null : cfg.purchase_fee,
+    tax: allIn ? null : cfg.energy_tax,
+    vat: allIn ? null : p.total - p.total / vatF,
+    total: p.total,
+  });
+  for (const p of list) p.parts = partsOf(p);
+  const breakdown = current ? current.parts : null;
   // Plausibility (#4): a Dutch market price excl. VAT is rarely above
   // € 0.20/kWh on average. Higher means the source probably already includes
   // tax and VAT, and the app would add them a second time.

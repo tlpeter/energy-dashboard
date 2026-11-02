@@ -266,6 +266,7 @@
     }, true);
     axis(['00', '06', '12', '18', '24']);
     const now = Date.now();
+    S.chartSlots = null;
 
     if (S.chartTab === 'price') {
       const pv = S.prices;
@@ -276,7 +277,9 @@
       const list = pv.prices.filter((p) => p.start >= from && p.start < to);
       if (!list.length) { $('chartNote').textContent = t('tomorrow_not_yet'); return; }
       const allMax = Math.max(...pv.prices.map((p) => p.total));
-      bars(svg, list.map((p) => ({ v: p.total, c: p.color, o: p.end <= now ? 0.4 : 1, ring: p.start <= now && now < p.end })), { avg: pv.reference, max: allMax });
+      S.chartSlots = list;
+      const sel = S.popup && S.popup.startsWith('price:') ? Number(S.popup.slice(6)) : null;
+      bars(svg, list.map((p) => ({ v: p.total, c: p.color, o: p.end <= now && p.start !== sel ? 0.4 : 1, ring: sel !== null ? p.start === sel : (p.start <= now && now < p.end) })), { avg: pv.reference, max: allMax });
       return;
     }
     if (S.chartTab === 'usage') {
@@ -395,24 +398,38 @@
 
   async function popupContent(kind) {
     const t = S.t;
-    if (kind === 'price') {
+    if (kind === 'price' || kind.startsWith('price:')) {
       const pv = S.prices;
-      if (!pv || !pv.current) return { title: t('tab_price'), html: `<div class="hint">${esc(t('no_prices'))}</div>` };
-      const b = pv.breakdown;
+      const slot = kind.startsWith('price:') && pv ? pv.prices.find((p) => p.start === Number(kind.slice(6))) : (pv && pv.current);
+      if (!pv || !slot) return { title: t('tab_price'), html: `<div class="hint">${esc(t('no_prices'))}</div>` };
+      const isNow = slot.start <= Date.now() && Date.now() < slot.end;
+      const isTomorrow = slot.start >= pv.window.tomorrow;
+      const day = isTomorrow ? pv.tomorrow : pv.today;
+      const b = slot.parts;
       let bar = '';
       if (b && b.market !== null) {
         const parts = [[t('market'), b.market, '#4da3ff'], [t('fee'), b.fee, '#8fc4ff'], [t('tax'), b.tax, '#ffc699'], [t('vat'), b.vat, '#ff9a4d']];
         const tot = parts.reduce((s, p) => s + Math.max(0, p[1]), 0) || 1;
-        bar = `<div class="small muted">${esc(t('build_up'))}</div><div class="stack-bar">${parts.map((p) => `<span style="flex:${Math.max(0.02, Math.max(0, p[1]) / tot)};background:${p[2]}">${esc(p[0])} € ${num(p[1], 3)}</span>`).join('')}</div>`;
+        bar = `<div class="small muted">${esc(t(isNow ? 'build_up' : 'build_up_slot'))}</div><div class="stack-bar">${parts.map((p) => `<span style="flex:${Math.max(0.02, Math.max(0, p[1]) / tot)};background:${p[2]}">${esc(p[0])} € ${num(p[1], 3)}</span>`).join('')}</div>`;
+      }
+      let dev = '';
+      if (Number.isFinite(pv.reference) && pv.reference) {
+        const pct = Math.round((slot.total / pv.reference - 1) * 100);
+        dev = pct === 0 ? t('at_avg') : t(pct < 0 ? 'below_avg' : 'above_avg', { p: Math.abs(pct) });
       }
       const tags = [];
-      if (pv.today.cheap) tags.push(`<span class="tag good">${esc(t('cheap'))}: ${hhmm(pv.today.cheap.start)}–${hhmm(pv.today.cheap.end)} · € ${num(pv.today.cheap.average)}</span>`);
-      if (pv.today.dear) tags.push(`<span class="tag bad">${esc(t('expensive'))}: ${hhmm(pv.today.dear.start)}–${hhmm(pv.today.dear.end)} · € ${num(pv.today.dear.average)}</span>`);
-      if (pv.tomorrow && pv.tomorrow.cheap) tags.push(`<span class="tag good">${esc(t('tomorrow'))}: ${hhmm(pv.tomorrow.cheap.start)}–${hhmm(pv.tomorrow.cheap.end)} · € ${num(pv.tomorrow.cheap.average)}</span>`);
+      if (isNow || !kind.startsWith('price:')) {
+        if (pv.today.cheap) tags.push(`<span class="tag good">${esc(t('cheap'))}: ${hhmm(pv.today.cheap.start)}–${hhmm(pv.today.cheap.end)} · € ${num(pv.today.cheap.average)}</span>`);
+        if (pv.today.dear) tags.push(`<span class="tag bad">${esc(t('expensive'))}: ${hhmm(pv.today.dear.start)}–${hhmm(pv.today.dear.end)} · € ${num(pv.today.dear.average)}</span>`);
+        if (pv.tomorrow && pv.tomorrow.cheap) tags.push(`<span class="tag good">${esc(t('tomorrow'))}: ${hhmm(pv.tomorrow.cheap.start)}–${hhmm(pv.tomorrow.cheap.end)} · € ${num(pv.tomorrow.cheap.average)}</span>`);
+      } else if (day && day.cheap) {
+        tags.push(`<span class="tag good">${esc(t('cheap'))}: ${hhmm(day.cheap.start)}–${hhmm(day.cheap.end)} · € ${num(day.cheap.average)}</span>`);
+      }
       const warn = (pv.plausibility ? `<div class="warn">${esc(t('looks_all_in'))}</div>` : '') + (pv.warnings || []).map((w) => `<div class="warn">${esc(w)}</div>`).join('');
+      const label = isNow ? t('now') : `${isTomorrow ? t('tomorrow') : t('today')} ${hhmm(slot.start)}–${hhmm(slot.end)}`;
       return {
-        title: t('tab_price'),
-        html: `<div class="stats">${stat(t('now'), `€ ${num(pv.current.total)}`, pv.now_color)}${stat(t('average'), `€ ${num(pv.today.average)}`)}${stat(t('lowest'), pv.today.low ? `€ ${num(pv.today.low.total)}` : '—', 'var(--good)')}${stat(t('highest'), pv.today.high ? `€ ${num(pv.today.high.total)}` : '—', 'var(--bad)')}</div>${bar}<div class="tags">${tags.join('')}</div>${warn}`,
+        title: isNow ? t('tab_price') : `${t('tab_price')} · ${label}`,
+        html: `<div class="stats">${stat(label, `€ ${num(slot.total)}`, slot.color)}${stat(t('average'), day ? `€ ${num(day.average)}` : '—')}${stat(t('lowest'), day && day.low ? `€ ${num(day.low.total)}` : '—', 'var(--good)')}${stat(t('highest'), day && day.high ? `€ ${num(day.high.total)}` : '—', 'var(--bad)')}</div>${dev ? `<div class="small" style="color:${slot.color}">${esc(dev)}</div>` : ''}${bar}<div class="tags">${tags.join('')}</div>${warn}`,
       };
     }
     if (kind === 'flow') {
@@ -457,6 +474,7 @@
   async function openPopup(kind) {
     S.popup = kind;
     S.popupAt = Date.now();
+    if (kind.startsWith('price:')) renderChart();
     $('popTitle').textContent = '…';
     $('popBody').innerHTML = `<div class="hint">${esc(S.t('loading'))}</div>`;
     $('popup').hidden = false;
@@ -471,8 +489,10 @@
     }
   }
   function closePopup() {
+    const wasSlot = S.popup && S.popup.startsWith('price:');
     S.popup = null;
     $('popup').hidden = true;
+    if (wasSlot) renderChart();
   }
   S.closePopup = closePopup;
 
@@ -586,7 +606,16 @@
     window.addEventListener(ev, () => { S.lastTouch = Date.now(); }, { passive: true });
   }
   $('priceNow').addEventListener('click', () => openPopup('price'));
-  $('chartBtn').addEventListener('click', () => openPopup(S.chartTab === 'price' ? 'price' : 'usage'));
+  $('chartBtn').addEventListener('click', (e) => {
+    if (S.chartTab !== 'price') { openPopup('usage'); return; }
+    const slots = S.chartSlots;
+    if (!slots || !slots.length) { openPopup('price'); return; }
+    // The bars fill the chart from left to right in equal parts (#5).
+    const r = $('chart').getBoundingClientRect();
+    const x = (e.clientX ?? (r.left + r.width / 2)) - r.left;
+    const i = Math.max(0, Math.min(slots.length - 1, Math.floor((x / r.width) * slots.length)));
+    openPopup(`price:${slots[i].start}`);
+  });
   $('flowCard').addEventListener('click', () => openPopup('flow'));
   $('popClose').addEventListener('click', closePopup);
   $('popup').addEventListener('click', (e) => { if (e.target === $('popup')) closePopup(); });

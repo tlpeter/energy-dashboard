@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4-dev
+
+- Price chart: tapping a bar opens the price of that hour (or quarter), today or tomorrow: the all-in price, how it compares with the average, the build-up and low/high of that day. The tapped bar is marked. The price at the top still shows the price of now (#5).
+
 ## 0.1.3-dev
 
 - Warning when a price source looks all-in or incl. VAT while it is set as a market price: then the fee, energy tax and VAT would be counted twice. Shown in the price pop-up and in Settings › Supplier & tariff, with what the source gives now and the all-in result (#4).
