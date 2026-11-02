@@ -211,21 +211,27 @@
     }
   }
 
+  // list: [{ v, c, o, ring, neg, negC }] — v up from zero, neg (optional) down.
   function bars(svg, list, opts) {
     const W = 600;
     const H = 220;
     const n = list.length;
     if (!n) return;
     const max = Math.max(0.0001, ...list.map((x) => Math.max(0, x.v)), opts.max || 0);
-    const min = Math.min(0, ...list.map((x) => x.v));
+    const min = Math.min(0, ...list.map((x) => Math.min(x.v, -(x.neg || 0))));
     const span = max - min;
     const zero = H - 4 - ((0 - min) / span) * (H - 12);
     const gap = n > 48 ? 1 : 3;
     const bw = (W - gap * (n - 1)) / n;
+    const rect = (i, v, c, x) => {
+      if (!v) return;
+      const h = Math.max(2, (Math.abs(v) / span) * (H - 12));
+      el('rect', { x: i * (bw + gap), y: v >= 0 ? zero - h : zero, width: Math.max(1, bw), height: h, rx: Math.min(4, bw / 3), fill: c, opacity: x.o ?? 1, stroke: x.ring ? '#e8eef5' : null, 'stroke-width': x.ring ? 2 : null }, svg);
+    };
     list.forEach((x, i) => {
-      const h = Math.max(2, (Math.abs(x.v) / span) * (H - 12));
-      const y = x.v >= 0 ? zero - h : zero;
-      el('rect', { x: i * (bw + gap), y, width: Math.max(1, bw), height: h, rx: Math.min(4, bw / 3), fill: x.c, opacity: x.o ?? 1, stroke: x.ring ? '#e8eef5' : null, 'stroke-width': x.ring ? 2 : null }, svg);
+      if (x.v === null) return;
+      rect(i, x.v === 0 && !x.neg ? 0.000001 * span : x.v, x.c, x);
+      if (x.neg) rect(i, -x.neg, x.negC, x);
     });
     el('line', { x1: 0, x2: W, y1: zero, y2: zero, stroke: '#243040', 'stroke-width': 1 }, svg);
     if (Number.isFinite(opts.avg)) {
@@ -268,11 +274,7 @@
     if (S.chartTab === 'usage') {
       const d = S.day;
       if (!d || !d.hours) { $('chartNote').textContent = t('loading'); return; }
-      const list = [];
-      for (const h of d.hours) list.push({ v: h.known ? h.import : 0, c: 'var(--grid)' });
-      const exp = d.hours.map((h) => ({ v: h.known ? -h.export : 0, c: 'var(--solar)' }));
-      const anyExport = exp.some((x) => x.v < 0);
-      bars(svg, anyExport ? list.map((x, i) => (x.v >= -exp[i].v ? x : exp[i])) : list, {});
+      bars(svg, d.hours.map((h) => (h.known ? { v: h.import, c: 'var(--grid)', neg: h.export, negC: 'var(--solar)' } : { v: null })), {});
       return;
     }
     // solar

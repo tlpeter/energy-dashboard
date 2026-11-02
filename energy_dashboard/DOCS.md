@@ -5,7 +5,7 @@ An interactive energy dashboard for a wall tablet. **Test version.**
 ## Install
 
 1. In Home Assistant: **Settings → Apps → App store** (older versions: Add-ons → Add-on store) → ⋮ → **Repositories**.
-2. Add `https://github.com/tlpeter/energy-dashboard` and close.
+2. Add `https://github.com/tlpeter/energy-dashboard#dev` (the test version; `main` has no app yet) and close.
 3. Open **Energy Dashboard (dev)** → **Install** → **Start**. Switch on **Show in sidebar**.
 4. Open it from the sidebar. The set-up wizard starts by itself.
 

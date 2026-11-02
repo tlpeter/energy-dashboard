@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1-dev
+
+- README with screenshots (made-up demo data) (#1).
+- Repository URL with `#dev` in the README and DOCS: Home Assistant needs it for the test version (#1).
+- Usage chart: import and export of the same hour are both shown (import up, export down); hours still to come stay empty.
+- Demo mode for the fake Home Assistant and a script that makes the screenshots (`tests/screenshots.js`).
+
 ## 0.1.0-dev
 
 First test version.
