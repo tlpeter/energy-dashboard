@@ -67,8 +67,9 @@ function priceView(result, settings, now = Date.now()) {
   const win = result.window;
   const ref = colors.reference(list, settings.edge.reference, now, win.tomorrow);
   const band = settings.edge.band / 100;
+  const fixed = settings.edge.mode === 'fixed';
   for (const p of list) {
-    const c = colors.colorFor(p.total, ref, band);
+    const c = fixed ? colors.colorFixed(p.total, settings.edge.green_below, settings.edge.red_above) : colors.colorFor(p.total, ref, band);
     p.color = c.css;
     p.level = c.level;
   }

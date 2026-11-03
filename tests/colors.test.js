@@ -62,3 +62,12 @@ test('a block does not jump over a gap', () => {
   const b = c.bestBlock(list, 2, 0, 5 * H, true);
   assert.strictEqual(b.start, 3 * H);
 });
+
+test('fixed limits: green at or below, red at or above, smooth between (#7)', () => {
+  assert.strictEqual(c.colorFixed(0.20, 0.25, 0.35).hue, c.GREEN_HUE);
+  assert.strictEqual(c.colorFixed(0.25, 0.25, 0.35).hue, c.GREEN_HUE);
+  assert.strictEqual(c.colorFixed(0.30, 0.25, 0.35).hue, c.MID_HUE);
+  assert.strictEqual(c.colorFixed(0.40, 0.25, 0.35).hue, c.RED_HUE);
+  assert.ok(Math.abs(c.levelFixed(0.325, 0.25, 0.35) - 0.5) < 1e-9);
+  assert.strictEqual(c.colorFixed(0.3, 0.35, 0.25).level, null, 'wrong order gives no colour');
+});

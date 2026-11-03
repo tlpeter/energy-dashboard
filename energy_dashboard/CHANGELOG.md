@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.6-dev
+
+- Colour of the price: a new choice in Settings › Edge & theme. **Compared with the average** (as before) or **Fixed limits**: fully green at or below a price you set, fully red at or above another, smooth in between. Applies to the edge and the price bars; the text "x% above average" stays (#7).
+
 ## 0.1.5-dev
 
 - Gas price and gas costs (#6). In Settings › Supplier & tariff (with a gas meter): EnergyZero or easyEnergy, a sensor with the gas price in €/m³, or a fixed price; purchase fee per m³ (starting values for six suppliers), energy tax on gas 2026 and VAT, with the same warning as #4 when the source already looks all-in.

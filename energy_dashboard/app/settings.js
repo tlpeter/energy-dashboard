@@ -34,7 +34,7 @@ const DEFAULTS = {
     gas: null,
   },
   modules: [],
-  edge: { reference: 'today_tomorrow', band: 25, width: 10, glow: 40, pulse: false },
+  edge: { mode: 'average', reference: 'today_tomorrow', band: 25, green_below: 0.25, red_above: 0.35, width: 10, glow: 40, pulse: false },
   theme: { night: 'sun', night_from: '22:30', night_to: '06:30', dim: 55 },
   idle: { home_seconds: 60, popup_seconds: 30 },
   tiles: ['cost', 'usage', 'charging_planner', 'heating_planner'],
@@ -181,6 +181,11 @@ function validate(input) {
   }
   const e = isObj(x.edge) ? x.edge : {};
   const t = isObj(x.theme) ? x.theme : {};
+  if (e.mode === 'fixed') {
+    const lo = num(e.green_below, 'Green at or below', -1, 5, DEFAULTS.edge.green_below);
+    const hi = num(e.red_above, 'Red at or above', -1, 5, DEFAULTS.edge.red_above);
+    if (!(hi > lo)) bad('Red at or above must be higher than green at or below');
+  }
   const idle = isObj(x.idle) ? x.idle : {};
   return {
     version: 1,
@@ -190,6 +195,9 @@ function validate(input) {
     price: validatePrice(x.price),
     modules,
     edge: {
+      mode: oneOf(e.mode, ['average', 'fixed'], DEFAULTS.edge.mode),
+      green_below: num(e.green_below, 'Green at or below', -1, 5, DEFAULTS.edge.green_below),
+      red_above: num(e.red_above, 'Red at or above', -1, 5, DEFAULTS.edge.red_above),
       reference: oneOf(e.reference, ['today', 'today_tomorrow', 'next24'], DEFAULTS.edge.reference),
       band: num(e.band, 'Edge sensitivity', 5, 100, DEFAULTS.edge.band),
       width: num(e.width, 'Edge width', 0, 40, DEFAULTS.edge.width),

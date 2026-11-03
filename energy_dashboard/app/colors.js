@@ -36,6 +36,21 @@ function colorFor(price, reference, band) {
   return { level: lv, hue: Math.round(hue), css: `hsl(${Math.round(hue)} 82% 50%)` };
 }
 
+// Fixed limits (#7): fully green at or below `low`, fully red at or above
+// `high`, a smooth scale in between (yellow halfway).
+function levelFixed(price, low, high) {
+  if (!Number.isFinite(price) || !Number.isFinite(low) || !Number.isFinite(high) || high <= low) return null;
+  const mid = (low + high) / 2;
+  return Math.max(-1, Math.min(1, (price - mid) / ((high - low) / 2)));
+}
+
+function colorFixed(price, low, high) {
+  const lv = levelFixed(price, low, high);
+  if (lv === null) return { level: null, hue: null, css: '#6b7785' };
+  const hue = hueFor(lv);
+  return { level: lv, hue: Math.round(hue), css: `hsl(${Math.round(hue)} 82% 50%)` };
+}
+
 // The reference the edge compares with.
 //  today: average of today; today_tomorrow: today + tomorrow (when known);
 //  next24: the coming 24 hours from now.
@@ -87,4 +102,4 @@ function bestBlock(prices, hours, from, to, cheapest = true) {
   return best;
 }
 
-module.exports = { deviation, level, hueFor, colorFor, reference, bestBlock, GREEN_HUE, MID_HUE, RED_HUE };
+module.exports = { deviation, level, levelFixed, colorFixed, hueFor, colorFor, reference, bestBlock, GREEN_HUE, MID_HUE, RED_HUE };

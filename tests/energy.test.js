@@ -124,3 +124,17 @@ test('every price slot has its own build-up (#5)', () => {
   }
   assert.notStrictEqual(v.prices[3].parts.total, v.breakdown.total);
 });
+
+test('fixed limits colour the prices regardless of the average (#7)', () => {
+  const base = Date.UTC(2026, 10, 3, 0);
+  const result = { interval_minutes: 60, window: { start: base, tomorrow: base + 24 * H, end: base + 48 * H }, prices: Array.from({ length: 24 }, (_, i) => ({ start: base + i * H, end: base + (i + 1) * H, price: 0.40 + i * 0.001 })) };
+  const s = settings.validate({ price: { price_type: 'all_in' }, edge: { mode: 'fixed', green_below: 0.25, red_above: 0.35 } });
+  const v = energy.priceView(result, s, base);
+  assert.strictEqual(v.now_level, 1, '€ 0.40 is red with these limits, even at the lowest of the day');
+  const avg = energy.priceView(result, settings.validate({ price: { price_type: 'all_in' } }), base);
+  assert.ok(avg.now_level < 0, 'compared with the average it is the cheap side');
+});
+
+test('fixed limits: red must be above green', () => {
+  assert.throws(() => settings.validate({ edge: { mode: 'fixed', green_below: 0.4, red_above: 0.3 } }), /higher/);
+});

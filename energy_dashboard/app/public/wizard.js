@@ -209,8 +209,10 @@
         ${on ? `<span class="row"><button type="button" class="btn small" data-action="tile-up" data-value="${k}">${esc(t('up'))}</button><button type="button" class="btn small" data-action="tile-down" data-value="${k}">${esc(t('down'))}</button></span>` : ''}</div>`;
     }).join('');
     return `<div class="panel"><h3>${esc(t('w_edge_q'))}</h3>
-        ${field(t('edge_ref'), select('edge.reference', opt([['today', 'ref_today'], ['today_tomorrow', 'ref_tt'], ['next24', 'ref_24']], e.reference)))}
-        ${field(t('edge_band'), numberInput('edge.band', e.band, 1))}
+        ${field(t('edge_mode'), select('edge.mode', opt([['average', 'mode_average'], ['fixed', 'mode_fixed']], e.mode)))}
+        ${e.mode === 'fixed'
+    ? field(t('green_below'), numberInput('edge.green_below', e.green_below)) + field(t('red_above'), numberInput('edge.red_above', e.red_above)) + `<div class="hint">${esc(t('fixed_hint'))}</div>`
+    : field(t('edge_ref'), select('edge.reference', opt([['today', 'ref_today'], ['today_tomorrow', 'ref_tt'], ['next24', 'ref_24']], e.reference))) + field(t('edge_band'), numberInput('edge.band', e.band, 1))}
         ${field(t('edge_width'), numberInput('edge.width', e.width, 1))}
         ${field(t('edge_glow'), numberInput('edge.glow', e.glow, 1))}
         ${field(t('edge_pulse'), check('edge.pulse', e.pulse))}
@@ -442,7 +444,7 @@
     if (!n.dataset.path) return;
     setPath(n.dataset.path, n.type === 'checkbox' ? n.checked : n.value, n.type);
     // Some choices change which fields are shown.
-    if (/^modules\.\d+\.type$|^theme\.night$|^price\.price_type$|^price\.gas\.price_type$|^meter\.gas$/.test(n.dataset.path)) render();
+    if (/^modules\.\d+\.type$|^theme\.night$|^price\.price_type$|^price\.gas\.price_type$|^meter\.gas$|^edge\.mode$/.test(n.dataset.path)) render();
   });
   root.addEventListener('input', (e) => {
     if (e.target.dataset.action === 'search') {
