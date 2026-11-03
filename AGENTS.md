@@ -17,6 +17,7 @@ Rules for everyone who works on this repository: people, Claude and Codex.
 - **Generic**: everything is chosen in the wizard or Settings (meter, supplier, devices). Never hard-code one house.
 - **Everything public is anonymous.** No real entity ids, addresses or diagnostics from the owner's house in code, tests, issues or docs.
 - **Every version gets a changelog entry**, short and in plain words.
+- **Issues fixed on `dev`** get the label `fixed in dev` and a short comment with the version, as soon as the fix is pushed. They stay open until the stable release on `main`; then the label comes off and the issue is closed.
 - Say which checks are fixture-tested and which are physically verified; never claim more.
 
 ## Branches and versions

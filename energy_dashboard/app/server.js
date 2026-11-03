@@ -20,6 +20,11 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const APP_VERSION = pkg.version;
 
 let settings = settingsMod.load();
+function logRepair() {
+  const r = settingsMod.lastRepair();
+  if (r && !r.logged) { ha.warn(r.message); r.logged = true; }
+}
+logRepair();
 const cache = { prices: null, pricesAt: 0, pricesError: null, pricesDay: null, solar: null, solarAt: 0, gas: null, gasAt: 0, gasError: null };
 
 // ------------------------------------------------------------------ helpers
@@ -296,6 +301,7 @@ function diagnostics() {
   // Allowlist only: no entity ids, names or numbers from the house.
   return {
     app_version: APP_VERSION,
+    settings_repaired: (() => { const r = settingsMod.lastRepair(); return r ? { at: new Date(r.at).toISOString(), parts: r.parts } : null; })(),
     ha_version: ha.state.version,
     connected: ha.state.connected,
     language: settings.language,
@@ -473,6 +479,7 @@ function start(port = PORT) {
       ha.log(`Energy Dashboard ${APP_VERSION} listening on port ${server.address().port}`);
       ha.onConnect(async () => {
         settings = settingsMod.load();
+        logRepair();
         await rewatch();
         await refreshPrices(true);
         await refreshGas(true);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.10-dev
+
+- Settings are no longer all lost when one saved setting fails the checks at start (for example after an update): only that part goes back to its default, the rest (meter, supplier, devices, …) is kept. The original file is kept as `settings.before-repair-<time>.json`, the log says what was reset and the diagnostics list it (names only) (#11).
+- Every save keeps the previous settings as `settings.backup.json` (#11).
+
 ## 0.1.9-dev
 
 - Usage chart coloured by the price of each hour, with the same colours, limits and smooth transitions as the price chart; export stays yellow below the zero line (#10).

@@ -89,3 +89,48 @@ test('colours: #rrggbb only, defaults kept, very above red (#8)', () => {
   assert.throws(() => settings.validate({ edge: { colors: { cheap: 'red;background:url(x)' } } }), /#rrggbb/);
   assert.throws(() => settings.validate({ edge: { mode: 'fixed', green_below: 0.2, red_above: 0.3, very_above: 0.25, colors: { use_very: true } } }), /Very expensive/);
 });
+
+test('repair: one broken part is reset, the rest is kept (#11)', () => {
+  const raw = {
+    wizard_done: true,
+    language: 'nl',
+    meter: { meter: 'homewizard', power_net: 'sensor.p1', energy_import: ['sensor.imp'], gas: 'not an entity' },
+    price: { supplier: 'anwb', fee_incl_vat: 0.018, gas: { source: { type: 'fixed' } } },
+    modules: [
+      { id: 'car', type: 'ev', name: 'Car', power_entity: 'sensor.car' },
+      { id: 'bad', type: 'ev', name: 'Broken' },
+      { id: 'boiler', type: 'device', name: 'Boiler', power_entity: 'sensor.boiler' },
+    ],
+    edge: { mode: 'fixed', green_below: 0.4, red_above: 0.3, width: 12 },
+  };
+  assert.throws(() => settings.validate(raw));
+  const { settings: s, problems } = settings.repair(raw);
+  assert.strictEqual(s.wizard_done, true);
+  assert.strictEqual(s.language, 'nl');
+  assert.strictEqual(s.meter.power_net, 'sensor.p1', 'meter kept');
+  assert.strictEqual(s.meter.gas, null, 'only the broken gas field reset');
+  assert.deepStrictEqual(s.modules.map((m) => m.id), ['car', 'boiler'], 'only the broken device dropped');
+  assert.strictEqual(s.price.supplier, 'anwb');
+  assert.strictEqual(s.price.gas, null);
+  assert.strictEqual(s.edge.width, 12, 'other edge settings kept');
+  assert.ok(problems.includes('meter.gas'));
+  assert.ok(problems.includes('modules[1]'));
+  assert.ok(problems.some((x) => x.startsWith('edge.')));
+  assert.ok(!problems.join().includes('sensor.'), 'no entity ids in the report');
+});
+
+test('load repairs instead of resetting, keeps a copy; save keeps a backup (#11)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const dir = process.env.DATA_DIR;
+  settings.save({ wizard_done: true, language: 'en' });
+  settings.save({ wizard_done: true, language: 'nl' });
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, 'settings.backup.json'), 'utf8')).language, 'en');
+  fs.writeFileSync(settings.FILE, JSON.stringify({ wizard_done: true, language: 'nl', edge: { band: 500 } }));
+  const s = settings.load();
+  assert.strictEqual(s.wizard_done, true, 'the wizard does not start again');
+  assert.strictEqual(s.language, 'nl');
+  assert.strictEqual(s.edge.band, 25);
+  assert.ok(fs.readdirSync(dir).some((f) => f.startsWith('settings.before-repair-')));
+  assert.deepStrictEqual(settings.lastRepair().parts, ['edge.band']);
+});

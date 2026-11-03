@@ -241,18 +241,88 @@ function validate(input) {
   };
 }
 
+// Repair (#11): keep everything that is valid and reset only what fails.
+// Each top-level part is checked on its own; inside a part, fields (or
+// devices) are left out one at a time until the rest passes.
+const passes = (cand) => { try { validate(cand); return true; } catch { return false; } };
+
+function repairPart(key, value, problems) {
+  if (passes({ [key]: value })) return { keep: true, value };
+  if (Array.isArray(value)) {
+    const kept = [];
+    value.forEach((item, i) => {
+      if (passes({ [key]: [...kept, item] })) kept.push(item);
+      else problems.push(`${key}[${i}]`);
+    });
+    return { keep: true, value: kept };
+  }
+  if (isObj(value)) {
+    let obj = { ...value };
+    const dropped = [];
+    for (const sub of Object.keys(value)) {
+      if (passes({ [key]: obj })) break;
+      const without = { ...obj };
+      delete without[sub];
+      // Leaving this field out (its default) helps, or it is itself broken.
+      if (passes({ [key]: without }) || !passes({ [key]: { [sub]: value[sub] } })) {
+        obj = without;
+        dropped.push(sub);
+      }
+    }
+    if (passes({ [key]: obj })) {
+      for (const d of dropped) problems.push(`${key}.${d}`);
+      return { keep: true, value: obj };
+    }
+  }
+  problems.push(key);
+  return { keep: false };
+}
+
+function repair(raw) {
+  const problems = [];
+  const out = {};
+  for (const key of Object.keys(raw || {})) {
+    const r = repairPart(key, raw[key], problems);
+    if (r.keep) out[key] = r.value;
+  }
+  let settings;
+  try {
+    settings = validate(out);
+  } catch {
+    problems.push('*');
+    settings = validate({ wizard_done: raw && raw.wizard_done === true });
+  }
+  return { settings, problems };
+}
+
+let lastRepair = null; // { at, parts } when the last load had to repair
+
 function load() {
   const raw = readJson(FILE, null);
   if (!raw) return validate({});
   try {
     return validate(raw);
-  } catch {
-    return validate({});
+  } catch (err) {
+    const { settings, problems } = repair(raw);
+    // Keep the original before anything is written over it.
+    try {
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      writeJsonAtomic(path.join(DATA_DIR, `settings.before-repair-${stamp}.json`), raw);
+    } catch { /* best effort */ }
+    lastRepair = { at: Date.now(), parts: problems };
+    // Logged by the server (settings.js has no logger of its own).
+    lastRepair.message = `Settings repaired at start: reset ${problems.join(', ') || 'nothing'} (${err.message})`;
+    return settings;
   }
 }
 
 function save(input) {
   const clean = validate(input);
+  // The previous version stays as a backup (#11).
+  const prev = readJson(FILE, null);
+  if (prev) {
+    try { writeJsonAtomic(path.join(DATA_DIR, 'settings.backup.json'), prev); } catch { /* best effort */ }
+  }
   writeJsonAtomic(FILE, clean);
   return clean;
 }
@@ -263,4 +333,4 @@ function exportMode(price, now = Date.now()) {
   return now < Date.UTC(2026, 11, 31, 23, 0, 0) ? 'net_metering' : 'market';
 }
 
-module.exports = { load, save, validate, exportMode, DEFAULTS, MODULE_TYPES, TILES, SettingsError, FILE };
+module.exports = { load, save, validate, repair, lastRepair: () => lastRepair, exportMode, DEFAULTS, MODULE_TYPES, TILES, SettingsError, FILE };
