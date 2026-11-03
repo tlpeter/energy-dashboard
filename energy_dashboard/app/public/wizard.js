@@ -217,6 +217,7 @@
         ${field(t('edge_glow'), numberInput('edge.glow', e.glow, 1))}
         ${field(t('edge_pulse'), check('edge.pulse', e.pulse))}
       </div>
+      ${secColors()}
       <div class="panel">
         ${field(t('night'), select('theme.night', opt([['off', 'night_off'], ['sun', 'night_sun'], ['times', 'night_times']], th.night)))}
         ${th.night === 'times' ? field(t('night_from'), `<input type="text" data-path="theme.night_from" value="${esc(th.night_from)}" placeholder="22:30">`) + field(t('night_to'), `<input type="text" data-path="theme.night_to" value="${esc(th.night_to)}" placeholder="06:30">`) : ''}
@@ -225,6 +226,31 @@
         ${field(t('idle_popup'), numberInput('idle.popup_seconds', W.draft.idle.popup_seconds, 1))}
       </div>
       <div class="panel"><h3>${esc(t('tiles'))}</h3>${tiles}</div>`;
+  }
+
+  // Colours of the price scale (#8).
+  const DEFAULT_COLORS = { cheap: '#17e86e', mid: '#e8d717', expensive: '#e81717', very: '#a855f7', negative: '#3b82f6' };
+  function colorInput(path, value) {
+    return `<input type="color" data-path="${path}" value="${esc(value)}">`;
+  }
+  function secColors() {
+    const e = W.draft.edge;
+    if (!e.colors) e.colors = { ...DEFAULT_COLORS, use_very: false, use_negative: false };
+    const c = e.colors;
+    const stops = [c.use_negative ? c.negative : null, c.cheap, c.mid, c.expensive, c.use_very ? c.very : null].filter(Boolean);
+    return `<div class="panel"><h3>${esc(t('colors'))}</h3>
+      <div class="scale" style="background:linear-gradient(90deg, ${stops.map(esc).join(', ')})"></div>
+      ${field(t('color_cheap'), colorInput('edge.colors.cheap', c.cheap))}
+      ${field(t('color_mid'), colorInput('edge.colors.mid', c.mid))}
+      ${field(t('color_expensive'), colorInput('edge.colors.expensive', c.expensive))}
+      ${field(t('use_very'), check('edge.colors.use_very', c.use_very))}
+      ${c.use_very ? field(t('color_very'), colorInput('edge.colors.very', c.very)) : ''}
+      ${c.use_very && e.mode === 'fixed' ? field(t('very_above'), numberInput('edge.very_above', e.very_above)) : ''}
+      ${c.use_very && e.mode !== 'fixed' ? `<div class="hint">${esc(t('very_avg_hint'))}</div>` : ''}
+      ${field(t('use_negative'), check('edge.colors.use_negative', c.use_negative))}
+      ${c.use_negative ? field(t('color_negative'), colorInput('edge.colors.negative', c.negative)) : ''}
+      <div><button type="button" class="btn small" data-action="colors-reset">${esc(t('colors_reset'))}</button></div>
+    </div>`;
   }
 
   function secDone() {
@@ -396,6 +422,11 @@
         if (i >= 0 && j >= 0 && j < tl.length) [tl[i], tl[j]] = [tl[j], tl[i]];
         break;
       }
+      case 'colors-reset': {
+        const c = W.draft.edge.colors || {};
+        W.draft.edge.colors = { ...DEFAULT_COLORS, use_very: c.use_very === true, use_negative: c.use_negative === true };
+        break;
+      }
       case 'tab': W.step = Number(value); W.error = ''; break;
       case 'prev': W.step = Math.max(0, W.step - 1); W.error = ''; break;
       case 'next':
@@ -444,7 +475,7 @@
     if (!n.dataset.path) return;
     setPath(n.dataset.path, n.type === 'checkbox' ? n.checked : n.value, n.type);
     // Some choices change which fields are shown.
-    if (/^modules\.\d+\.type$|^theme\.night$|^price\.price_type$|^price\.gas\.price_type$|^meter\.gas$|^edge\.mode$/.test(n.dataset.path)) render();
+    if (/^modules\.\d+\.type$|^theme\.night$|^price\.price_type$|^price\.gas\.price_type$|^meter\.gas$|^edge\.mode$|^edge\.colors\./.test(n.dataset.path)) render();
   });
   root.addEventListener('input', (e) => {
     if (e.target.dataset.action === 'search') {

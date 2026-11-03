@@ -34,7 +34,7 @@ const DEFAULTS = {
     gas: null,
   },
   modules: [],
-  edge: { mode: 'average', reference: 'today_tomorrow', band: 25, green_below: 0.25, red_above: 0.35, width: 10, glow: 40, pulse: false },
+  edge: { mode: 'average', reference: 'today_tomorrow', band: 25, green_below: 0.25, red_above: 0.35, very_above: 0.45, width: 10, glow: 40, pulse: false, colors: { cheap: '#17e86e', mid: '#e8d717', expensive: '#e81717', very: '#a855f7', negative: '#3b82f6', use_very: false, use_negative: false } },
   theme: { night: 'sun', night_from: '22:30', night_to: '06:30', dim: 55 },
   idle: { home_seconds: 60, popup_seconds: 30 },
   tiles: ['cost', 'usage', 'charging_planner', 'heating_planner'],
@@ -171,6 +171,22 @@ function validateModule(m, i) {
   };
 }
 
+// Colours of the price scale (#8): #rrggbb only.
+function validateColors(c) {
+  const x = isObj(c) ? c : {};
+  const d = DEFAULTS.edge.colors;
+  const hex = (v, k) => {
+    if (v === null || v === undefined || v === '') return d[k];
+    if (!/^#[0-9a-fA-F]{6}$/.test(String(v))) bad(`Colour ${k}: use #rrggbb`);
+    return String(v).toLowerCase();
+  };
+  return {
+    cheap: hex(x.cheap, 'cheap'), mid: hex(x.mid, 'mid'), expensive: hex(x.expensive, 'expensive'),
+    very: hex(x.very, 'very'), negative: hex(x.negative, 'negative'),
+    use_very: x.use_very === true, use_negative: x.use_negative === true,
+  };
+}
+
 function validate(input) {
   const x = isObj(input) ? input : {};
   const modules = (Array.isArray(x.modules) ? x.modules : []).slice(0, 12).map(validateModule);
@@ -185,6 +201,9 @@ function validate(input) {
     const lo = num(e.green_below, 'Green at or below', -1, 5, DEFAULTS.edge.green_below);
     const hi = num(e.red_above, 'Red at or above', -1, 5, DEFAULTS.edge.red_above);
     if (!(hi > lo)) bad('Red at or above must be higher than green at or below');
+    const c = isObj(e.colors) ? e.colors : {};
+    const very = num(e.very_above, 'Very expensive at or above', -1, 10, DEFAULTS.edge.very_above);
+    if (c.use_very === true && !(very > hi)) bad('Very expensive at or above must be higher than red at or above');
   }
   const idle = isObj(x.idle) ? x.idle : {};
   return {
@@ -198,6 +217,8 @@ function validate(input) {
       mode: oneOf(e.mode, ['average', 'fixed'], DEFAULTS.edge.mode),
       green_below: num(e.green_below, 'Green at or below', -1, 5, DEFAULTS.edge.green_below),
       red_above: num(e.red_above, 'Red at or above', -1, 5, DEFAULTS.edge.red_above),
+      very_above: num(e.very_above, 'Very expensive at or above', -1, 10, DEFAULTS.edge.very_above),
+      colors: validateColors(e.colors),
       reference: oneOf(e.reference, ['today', 'today_tomorrow', 'next24'], DEFAULTS.edge.reference),
       band: num(e.band, 'Edge sensitivity', 5, 100, DEFAULTS.edge.band),
       width: num(e.width, 'Edge width', 0, 40, DEFAULTS.edge.width),

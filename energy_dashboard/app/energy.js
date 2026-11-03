@@ -69,7 +69,9 @@ function priceView(result, settings, now = Date.now()) {
   const band = settings.edge.band / 100;
   const fixed = settings.edge.mode === 'fixed';
   for (const p of list) {
-    const c = fixed ? colors.colorFixed(p.total, settings.edge.green_below, settings.edge.red_above) : colors.colorFor(p.total, ref, band);
+    const c = fixed
+      ? colors.colorFixed(p.total, settings.edge.green_below, settings.edge.red_above, settings.edge.colors, settings.edge.very_above)
+      : colors.colorFor(p.total, ref, band, settings.edge.colors);
     p.color = c.css;
     p.level = c.level;
   }
@@ -108,7 +110,7 @@ function priceView(result, settings, now = Date.now()) {
     reference: ref,
     band: settings.edge.band,
     current,
-    now_color: current ? current.color : '#6b7785',
+    now_color: current ? current.color : colors.NEUTRAL,
     now_level: current ? current.level : null,
     deviation: current && ref ? colors.deviation(current.total, ref) : null,
     today: { average: avg(today), low: min(today), high: max(today), cheap: colors.bestBlock(list, 2, win.start, win.tomorrow, true), dear: colors.bestBlock(list, 3, win.start, win.tomorrow, false) },

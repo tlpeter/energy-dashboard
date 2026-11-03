@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7-dev
+
+- Own colours for the price scale in Settings › Edge & theme › Colours: cheap, middle and expensive (default green, yellow, red as before), with a "Default colours" button (#8).
+- Optional extra step **very expensive** (default purple): with fixed limits from a third price you set, compared with the average at twice the distance of fully red (#8).
+- Optional own colour for **negative prices** (default blue) (#8).
+- Colours are now sent as #rrggbb instead of hsl().
+
 ## 0.1.6-dev
 
 - Colour of the price: a new choice in Settings › Edge & theme. **Compared with the average** (as before) or **Fixed limits**: fully green at or below a price you set, fully red at or above another, smooth in between. Applies to the edge and the price bars; the text "x% above average" stays (#7).

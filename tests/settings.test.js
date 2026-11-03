@@ -80,3 +80,12 @@ test('net metering until the end of 2026, market price after', () => {
   assert.strictEqual(settings.exportMode(p, Date.UTC(2027, 0, 1, 12)), 'market');
   assert.strictEqual(settings.exportMode({ export_mode: 'market' }, Date.UTC(2026, 5, 1)), 'market');
 });
+
+test('colours: #rrggbb only, defaults kept, very above red (#8)', () => {
+  const s = settings.validate({ edge: { colors: { cheap: '#00FF00' } } });
+  assert.strictEqual(s.edge.colors.cheap, '#00ff00');
+  assert.strictEqual(s.edge.colors.expensive, '#e81717');
+  assert.strictEqual(s.edge.colors.use_very, false);
+  assert.throws(() => settings.validate({ edge: { colors: { cheap: 'red;background:url(x)' } } }), /#rrggbb/);
+  assert.throws(() => settings.validate({ edge: { mode: 'fixed', green_below: 0.2, red_above: 0.3, very_above: 0.25, colors: { use_very: true } } }), /Very expensive/);
+});

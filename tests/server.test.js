@@ -120,11 +120,11 @@ test('end to end against a fake Home Assistant', async (t) => {
     assert.ok(pv.prices.length >= 24);
     const p = pv.prices[0];
     assert.ok(Math.abs(p.total - (p.raw * 1.21 + 0.018 + 0.11085)) < 1e-9);
-    assert.match(p.color, /^hsl\(/);
+    assert.match(p.color, /^#[0-9a-f]{6}$/);
     assert.ok(pv.current, 'a current price');
     assert.ok(pv.today.cheap);
     const live = (await request(port, 'GET', '/api/live')).json;
-    assert.match(live.price.color, /^hsl\(/);
+    assert.match(live.price.color, /^#[0-9a-f]{6}$/);
   });
 
   await t.test('today: usage and costs from statistics', async () => {

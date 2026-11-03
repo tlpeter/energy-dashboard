@@ -6,9 +6,46 @@
 // band: how far from the reference (as a fraction, 0.25 = 25 %) the colour is
 // fully green or fully red.
 
-const GREEN_HUE = 145;
-const MID_HUE = 55;
-const RED_HUE = 0;
+// Default colours (#8): the green, yellow and red of the first versions;
+// purple for "very expensive" and blue for negative prices, both off by default.
+const DEFAULT_COLORS = {
+  cheap: '#17e86e',
+  mid: '#e8d717',
+  expensive: '#e81717',
+  very: '#a855f7',
+  negative: '#3b82f6',
+};
+const NEUTRAL = '#6b7785';
+
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function mix(a, b, f) {
+  const x = hexToRgb(a);
+  const y = hexToRgb(b);
+  if (!x || !y) return a || b;
+  const c = x.map((v, i) => Math.round(v + (y[i] - v) * f));
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+// palette: { cheap, mid, expensive, very, negative, use_very, use_negative }
+function paletteOf(p) {
+  const x = p || {};
+  const pick = (k) => (hexToRgb(x[k]) ? String(x[k]).toLowerCase() : DEFAULT_COLORS[k]);
+  return { cheap: pick('cheap'), mid: pick('mid'), expensive: pick('expensive'), very: pick('very'), negative: pick('negative'), use_very: x.use_very === true, use_negative: x.use_negative === true };
+}
+
+// level: -1 cheap … 0 middle … 1 expensive … 2 very expensive.
+function colorAt(lv, palette) {
+  const p = paletteOf(palette);
+  if (lv === null || !Number.isFinite(lv)) return NEUTRAL;
+  if (lv <= 0) return mix(p.mid, p.cheap, Math.min(1, -lv));
+  if (lv <= 1) return mix(p.mid, p.expensive, lv);
+  return p.use_very ? mix(p.expensive, p.very, Math.min(1, lv - 1)) : p.expensive;
+}
 
 function deviation(price, reference) {
   if (!Number.isFinite(price) || !Number.isFinite(reference)) return null;
@@ -16,39 +53,40 @@ function deviation(price, reference) {
   return (price - reference) / Math.abs(reference);
 }
 
-// -1 (fully cheap) … 0 (average) … +1 (fully expensive)
-function level(price, reference, band) {
+// -1 (fully cheap) … 0 (average) … +1 (fully expensive) … +2 (very, if used)
+function level(price, reference, band, maxLevel = 1) {
   const d = deviation(price, reference);
   if (d === null) return null;
   const b = Math.max(0.01, Number(band) || 0.25);
-  return Math.max(-1, Math.min(1, d / b));
+  return Math.max(-1, Math.min(maxLevel, d / b));
 }
 
-function hueFor(lv) {
-  if (lv === null) return null;
-  return lv < 0 ? MID_HUE + (-lv) * (GREEN_HUE - MID_HUE) : MID_HUE - lv * (MID_HUE - RED_HUE);
+function result(price, lv, palette) {
+  const p = paletteOf(palette);
+  if (lv === null) return { level: null, negative: false, css: NEUTRAL };
+  if (p.use_negative && Number.isFinite(price) && price < 0) return { level: -1, negative: true, css: p.negative };
+  return { level: lv, negative: false, css: colorAt(lv, p) };
 }
 
-function colorFor(price, reference, band) {
-  const lv = level(price, reference, band);
-  if (lv === null) return { level: null, hue: null, css: '#6b7785' };
-  const hue = hueFor(lv);
-  return { level: lv, hue: Math.round(hue), css: `hsl(${Math.round(hue)} 82% 50%)` };
+// Compared with the average; "very expensive" at twice the red distance.
+function colorFor(price, reference, band, palette) {
+  const p = paletteOf(palette);
+  return result(price, level(price, reference, band, p.use_very ? 2 : 1), p);
 }
 
 // Fixed limits (#7): fully green at or below `low`, fully red at or above
-// `high`, a smooth scale in between (yellow halfway).
-function levelFixed(price, low, high) {
+// `high`, a smooth scale in between (yellow halfway); with "very expensive"
+// on, red goes on to that colour at `veryAbove` (#8).
+function levelFixed(price, low, high, veryAbove = null) {
   if (!Number.isFinite(price) || !Number.isFinite(low) || !Number.isFinite(high) || high <= low) return null;
+  if (price > high && Number.isFinite(veryAbove) && veryAbove > high) return Math.min(2, 1 + (price - high) / (veryAbove - high));
   const mid = (low + high) / 2;
   return Math.max(-1, Math.min(1, (price - mid) / ((high - low) / 2)));
 }
 
-function colorFixed(price, low, high) {
-  const lv = levelFixed(price, low, high);
-  if (lv === null) return { level: null, hue: null, css: '#6b7785' };
-  const hue = hueFor(lv);
-  return { level: lv, hue: Math.round(hue), css: `hsl(${Math.round(hue)} 82% 50%)` };
+function colorFixed(price, low, high, palette, veryAbove = null) {
+  const p = paletteOf(palette);
+  return result(price, levelFixed(price, low, high, p.use_very ? veryAbove : null), p);
 }
 
 // The reference the edge compares with.
@@ -102,4 +140,4 @@ function bestBlock(prices, hours, from, to, cheapest = true) {
   return best;
 }
 
-module.exports = { deviation, level, levelFixed, colorFixed, hueFor, colorFor, reference, bestBlock, GREEN_HUE, MID_HUE, RED_HUE };
+module.exports = { deviation, level, levelFixed, colorFixed, colorFor, colorAt, paletteOf, mix, reference, bestBlock, DEFAULT_COLORS, NEUTRAL };

@@ -140,6 +140,8 @@ button.card { cursor: pointer; display: flex; flex-direction: column; min-height
   padding: 0 12px; font: inherit; font-size: 15px; width: 100%;
 }
 .field input[type=checkbox] { width: 24px; height: 24px; }
+.field input[type=color] { width: 72px; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 3px; cursor: pointer; }
+.scale { height: 18px; border-radius: 9px; }
 .hint { font-size: 13px; color: var(--muted); }
 .warn { font-size: 13px; color: #ffc699; }
 .err { font-size: 14px; color: #ff8a80; }
