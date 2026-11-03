@@ -97,3 +97,13 @@ test('negative prices: own colour only when switched on (#8)', () => {
   assert.strictEqual(c.colorFixed(-0.02, 0.25, 0.35, {}).css, D.cheap);
   assert.strictEqual(c.colorFor(-0.02, 0.25, 0.25, { use_negative: true, negative: '#123456' }).css, '#123456');
 });
+
+test('mixing in OKLab: ends exact, middle stays bright (#9)', () => {
+  assert.strictEqual(c.mix('#17e86e', '#e81717', 0), '#17e86e');
+  assert.strictEqual(c.mix('#17e86e', '#e81717', 1), '#e81717');
+  const mid = c.mix('#17e86e', '#e81717', 0.5);
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(mid.slice(i, i + 2), 16));
+  // sRGB averaging gives about #806e42 (dull); OKLab keeps it lighter.
+  assert.ok(Math.max(r, g, b) > 150, `bright enough: ${mid}`);
+  assert.strictEqual(c.mix('#ffffff', '#ffffff', 0.37), '#ffffff');
+});

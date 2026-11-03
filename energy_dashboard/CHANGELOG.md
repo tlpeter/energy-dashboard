@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.8-dev
+
+- Smoother colours (#9): each price bar flows into the colours of its neighbours, the edge moves gradually towards the colour of the next hour instead of jumping at the full hour, and colours are mixed in a perceptual colour space (OKLab) so the tints in between stay clear.
+- New setting in Settings › Edge & theme: **Smooth transitions** (on by default).
+
 ## 0.1.7-dev
 
 - Own colours for the price scale in Settings › Edge & theme › Colours: cheap, middle and expensive (default green, yellow, red as before), with a "Default colours" button (#8).

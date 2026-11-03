@@ -138,3 +138,17 @@ test('fixed limits colour the prices regardless of the average (#7)', () => {
 test('fixed limits: red must be above green', () => {
   assert.throws(() => settings.validate({ edge: { mode: 'fixed', green_below: 0.4, red_above: 0.3 } }), /higher/);
 });
+
+test('smooth: bars carry neighbour colours and the edge moves towards the next hour (#9)', () => {
+  const base = Date.UTC(2026, 10, 3, 0);
+  const result = { interval_minutes: 60, window: { start: base, tomorrow: base + 3 * H, end: base + 6 * H }, prices: [0.20, 0.30, 0.40].map((p, i) => ({ start: base + i * H, end: base + (i + 1) * H, price: p })) };
+  const s = settings.validate({ price: { price_type: 'all_in' }, edge: { mode: 'fixed', green_below: 0.2, red_above: 0.4 } });
+  const v = energy.priceView(result, s, base + 1.5 * H);
+  assert.strictEqual(v.prices[0].color_left, v.prices[0].color, 'first bar has no neighbour on the left');
+  assert.notStrictEqual(v.prices[1].color_left, v.prices[1].color);
+  assert.strictEqual(v.now_color, v.prices[1].color, 'in the middle of the hour: its own colour');
+  const late = energy.priceView(result, s, base + 1.9 * H);
+  assert.notStrictEqual(late.now_color, late.prices[1].color, 'later in the hour: towards the next');
+  const off = energy.priceView(result, settings.validate({ price: { price_type: 'all_in' }, edge: { mode: 'fixed', green_below: 0.2, red_above: 0.4, smooth: false } }), base + 1.9 * H);
+  assert.strictEqual(off.now_color, off.prices[1].color);
+});

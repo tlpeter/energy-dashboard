@@ -75,7 +75,26 @@ function priceView(result, settings, now = Date.now()) {
     p.color = c.css;
     p.level = c.level;
   }
+  // Smooth bars (#9): each bar starts halfway to the colour of the bar before
+  // it and ends halfway to the next one.
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    const prev = list[i - 1] && list[i - 1].end === p.start ? list[i - 1] : null;
+    const next = list[i + 1] && list[i + 1].start === p.end ? list[i + 1] : null;
+    p.color_left = prev ? colors.mix(prev.color, p.color, 0.5) : p.color;
+    p.color_right = next ? colors.mix(p.color, next.color, 0.5) : p.color;
+  }
   const current = list.find((p) => p.start <= now && now < p.end) || null;
+  // Smooth edge (#9): from the middle of this slot the colour moves towards
+  // the next slot, so it does not jump at the full hour.
+  let nowColor = current ? current.color : colors.NEUTRAL;
+  if (current && settings.edge.smooth !== false) {
+    const mid = (current.start + current.end) / 2;
+    const prev = list.find((p) => p.end === current.start);
+    const next = list.find((p) => p.start === current.end);
+    if (now >= mid && next) nowColor = colors.mix(current.color, next.color, ((now - mid) / (current.end - current.start)));
+    else if (now < mid && prev) nowColor = colors.mix(current.color, prev.color, ((mid - now) / (current.end - current.start)));
+  }
   const today = list.filter((p) => p.start < win.tomorrow);
   const tomorrow = list.filter((p) => p.start >= win.tomorrow);
   const avg = (l) => (l.length ? l.reduce((s, p) => s + p.total * (p.end - p.start), 0) / l.reduce((s, p) => s + (p.end - p.start), 0) : null);
@@ -110,7 +129,8 @@ function priceView(result, settings, now = Date.now()) {
     reference: ref,
     band: settings.edge.band,
     current,
-    now_color: current ? current.color : colors.NEUTRAL,
+    now_color: nowColor,
+    smooth: settings.edge.smooth !== false,
     now_level: current ? current.level : null,
     deviation: current && ref ? colors.deviation(current.total, ref) : null,
     today: { average: avg(today), low: min(today), high: max(today), cheap: colors.bestBlock(list, 2, win.start, win.tomorrow, true), dear: colors.bestBlock(list, 3, win.start, win.tomorrow, false) },

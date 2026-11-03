@@ -23,11 +23,36 @@ function hexToRgb(hex) {
   const n = parseInt(m[1], 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
+// Mixing in OKLab (#9): tints in between stay clear instead of turning
+// muddy, which happens when sRGB values are simply averaged.
+const toLin = (v) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+const toSrgb = (v) => { const c = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055; return Math.round(Math.max(0, Math.min(1, c)) * 255); };
+function rgbToOklab([r, g, b]) {
+  const [lr, lg, lb] = [toLin(r), toLin(g), toLin(b)];
+  const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb);
+  const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb);
+  const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb);
+  return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
+}
+function oklabToRgb([L, a, b]) {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [
+    toSrgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+    toSrgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+    toSrgb(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+  ];
+}
 function mix(a, b, f) {
   const x = hexToRgb(a);
   const y = hexToRgb(b);
   if (!x || !y) return a || b;
-  const c = x.map((v, i) => Math.round(v + (y[i] - v) * f));
+  if (f <= 0) return `#${x.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  if (f >= 1) return `#${y.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+  const p = rgbToOklab(x);
+  const q = rgbToOklab(y);
+  const c = oklabToRgb(p.map((v, i) => v + (q[i] - v) * f));
   return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 

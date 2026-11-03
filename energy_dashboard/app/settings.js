@@ -34,7 +34,7 @@ const DEFAULTS = {
     gas: null,
   },
   modules: [],
-  edge: { mode: 'average', reference: 'today_tomorrow', band: 25, green_below: 0.25, red_above: 0.35, very_above: 0.45, width: 10, glow: 40, pulse: false, colors: { cheap: '#17e86e', mid: '#e8d717', expensive: '#e81717', very: '#a855f7', negative: '#3b82f6', use_very: false, use_negative: false } },
+  edge: { mode: 'average', reference: 'today_tomorrow', band: 25, green_below: 0.25, red_above: 0.35, very_above: 0.45, width: 10, glow: 40, pulse: false, smooth: true, colors: { cheap: '#17e86e', mid: '#e8d717', expensive: '#e81717', very: '#a855f7', negative: '#3b82f6', use_very: false, use_negative: false } },
   theme: { night: 'sun', night_from: '22:30', night_to: '06:30', dim: 55 },
   idle: { home_seconds: 60, popup_seconds: 30 },
   tiles: ['cost', 'usage', 'charging_planner', 'heating_planner'],
@@ -224,6 +224,7 @@ function validate(input) {
       width: num(e.width, 'Edge width', 0, 40, DEFAULTS.edge.width),
       glow: num(e.glow, 'Edge glow', 0, 150, DEFAULTS.edge.glow),
       pulse: e.pulse === true,
+      smooth: e.smooth !== false,
     },
     theme: {
       night: oneOf(t.night, ['off', 'sun', 'times'], DEFAULTS.theme.night),

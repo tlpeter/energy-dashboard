@@ -359,6 +359,7 @@ const routes = {
       price: view ? {
         now: view.current ? view.current.total : null,
         color: view.now_color,
+        smooth: view.smooth,
         level: view.now_level,
         deviation: view.deviation,
         reference: view.reference,

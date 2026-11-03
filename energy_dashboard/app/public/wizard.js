@@ -216,6 +216,7 @@
         ${field(t('edge_width'), numberInput('edge.width', e.width, 1))}
         ${field(t('edge_glow'), numberInput('edge.glow', e.glow, 1))}
         ${field(t('edge_pulse'), check('edge.pulse', e.pulse))}
+        ${field(t('edge_smooth'), check('edge.smooth', e.smooth !== false))}
       </div>
       ${secColors()}
       <div class="panel">

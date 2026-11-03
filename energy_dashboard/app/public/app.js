@@ -225,12 +225,20 @@
     const min = Math.min(0, ...list.map((x) => Math.min(x.v, -(x.neg || 0))));
     const span = max - min;
     const zero = H - 4 - ((0 - min) / span) * (H - 12);
-    const gap = n > 48 ? 1 : 3;
+    const gap = opts.gap ?? (n > 48 ? 1 : 3);
     const bw = (W - gap * (n - 1)) / n;
+    let defs = null;
+    const gradient = (id, cols) => {
+      if (!defs) defs = el('defs', {}, svg);
+      const g = el('linearGradient', { id, x1: 0, x2: 1, y1: 0, y2: 0 }, defs);
+      cols.forEach((c, k) => el('stop', { offset: k / (cols.length - 1), 'stop-color': c }, g));
+      return `url(#${id})`;
+    };
     const rect = (i, v, c, x) => {
       if (!v) return;
       const h = Math.max(2, (Math.abs(v) / span) * (H - 12));
-      el('rect', { x: i * (bw + gap), y: v >= 0 ? zero - h : zero, width: Math.max(1, bw), height: h, rx: Math.min(4, bw / 3), fill: c, opacity: x.o ?? 1, stroke: x.ring ? '#e8eef5' : null, 'stroke-width': x.ring ? 2 : null }, svg);
+      const fill = x.grad && v >= 0 ? gradient(`g${svg.id}${i}`, x.grad) : c;
+      el('rect', { x: i * (bw + gap), y: v >= 0 ? zero - h : zero, width: Math.max(1, bw), height: h, rx: Math.min(4, bw / 3), fill, opacity: x.o ?? 1, stroke: x.ring ? '#e8eef5' : null, 'stroke-width': x.ring ? 2 : null }, svg);
     };
     list.forEach((x, i) => {
       if (x.v === null) return;
@@ -279,7 +287,9 @@
       const allMax = Math.max(...pv.prices.map((p) => p.total));
       S.chartSlots = list;
       const sel = S.popup && S.popup.startsWith('price:') ? Number(S.popup.slice(6)) : null;
-      bars(svg, list.map((p) => ({ v: p.total, c: p.color, o: p.end <= now && p.start !== sel ? 0.4 : 1, ring: sel !== null ? p.start === sel : (p.start <= now && now < p.end) })), { avg: pv.reference, max: allMax });
+      const smooth = pv.smooth !== false;
+      // Smooth (#9): narrow gaps, and every bar flows into its neighbours.
+      bars(svg, list.map((p) => ({ v: p.total, c: p.color, grad: smooth && p.color_left ? [p.color_left, p.color, p.color_right] : null, o: p.end <= now && p.start !== sel ? 0.4 : 1, ring: sel !== null ? p.start === sel : (p.start <= now && now < p.end) })), { avg: pv.reference, max: allMax, gap: smooth ? 1 : null });
       return;
     }
     if (S.chartTab === 'usage') {
