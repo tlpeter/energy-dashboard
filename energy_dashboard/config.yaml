@@ -1,5 +1,5 @@
 name: Energy Dashboard (dev)
-version: "0.1.8-dev"
+version: "0.1.9-dev"
 slug: energy_dashboard
 description: "TEST VERSION: Interactive energy dashboard for a wall tablet: live flows, prices with a green-to-red edge, costs and planners."
 url: https://github.com/tlpeter/energy-dashboard

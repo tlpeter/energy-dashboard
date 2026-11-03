@@ -272,6 +272,13 @@
       if (S.chartTab === 'usage') loadDay().then(renderChart);
       else renderChart();
     }, true);
+    if (S.chartTab === 'usage') {
+      // kWh or € per hour (#10)
+      const unit = document.createElement('span');
+      unit.className = 'chips unit-chips';
+      chips(unit, [['kwh', 'kWh'], ['eur', '€']], S.usageUnit || 'kwh', (k) => { S.usageUnit = k; renderChart(); }, true);
+      $('dayTabs').prepend(unit);
+    }
     axis(['00', '06', '12', '18', '24']);
     const now = Date.now();
     S.chartSlots = null;
@@ -295,7 +302,19 @@
     if (S.chartTab === 'usage') {
       const d = S.day;
       if (!d || !d.hours) { $('chartNote').textContent = t('loading'); return; }
-      bars(svg, d.hours.map((h) => (h.known ? { v: h.import, c: 'var(--grid)', neg: h.export, negC: 'var(--solar)' } : { v: null })), {});
+      // Coloured by the price of that hour (#10); export stays yellow below zero.
+      const smooth = d.smooth !== false;
+      const eur = S.usageUnit === 'eur';
+      bars(svg, d.hours.map((h) => {
+        if (!h.known) return { v: null };
+        const grad = smooth && h.price !== null ? [h.color_left, h.color, h.color_right] : null;
+        if (eur) {
+          if (h.cost === null) return { v: 0.000001, c: h.color };
+          return h.cost >= 0 ? { v: h.cost, c: h.color, grad } : { v: 0, neg: -h.cost, negC: 'var(--solar)' };
+        }
+        return { v: h.import, c: h.color, grad, neg: h.export, negC: 'var(--solar)' };
+      }), { gap: smooth ? 1 : null });
+      if (eur && !d.priced) $('chartNote').textContent = t('no_prices');
       return;
     }
     // solar

@@ -174,6 +174,11 @@ async function day(offset) {
     list = raw.map((p) => ({ ...p, raw: p.price, total: prices.totalPrice(p.price, cfg) }));
   }
   const c = energy.costs(hours, list, settings.price);
+  // Price colours for the usage chart (#10): today against the same
+  // reference as the edge, other days against their own average.
+  const reference = offset === 0 && view ? view.reference : require('./colors').reference(list, 'today_tomorrow', from, to);
+  const coloured = energy.colourHours(hours, c.per_hour, settings, reference);
+  delete c.per_hour;
   const gasRows = meter && meter.gas && stats[meter.gas] ? stats[meter.gas] : [];
   let gasList = [];
   const g = settings.price.gas;
@@ -188,7 +193,8 @@ async function day(offset) {
   const fixedPerDay = Number(settings.price.fixed_month) ? Number(settings.price.fixed_month) * 12 / 365 : null;
   return {
     from, to,
-    hours: hours.map((h) => ({ start: h.start, import: h.import, export: h.export, known: h.known })),
+    hours: coloured,
+    smooth: settings.edge.smooth !== false,
     ...c,
     gas_m3: meter && meter.gas ? gc.m3 : null,
     gas_cost: meter && meter.gas && gasList.length ? gc.cost : null,

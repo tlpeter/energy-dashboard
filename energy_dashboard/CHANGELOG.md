@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.9-dev
+
+- Usage chart coloured by the price of each hour, with the same colours, limits and smooth transitions as the price chart; export stays yellow below the zero line (#10).
+- New switch **kWh / €** on the Usage tab: in € the bars show the costs per hour, export as earnings below the zero line (#10).
+
 ## 0.1.8-dev
 
 - Smoother colours (#9): each price bar flows into the colours of its neighbours, the edge moves gradually towards the colour of the next hour instead of jumping at the full hour, and colours are mixed in a perceptual colour space (OKLab) so the tints in between stay clear.

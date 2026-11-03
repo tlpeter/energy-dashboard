@@ -152,3 +152,18 @@ test('smooth: bars carry neighbour colours and the edge moves towards the next h
   const off = energy.priceView(result, settings.validate({ price: { price_type: 'all_in' }, edge: { mode: 'fixed', green_below: 0.2, red_above: 0.4, smooth: false } }), base + 1.9 * H);
   assert.strictEqual(off.now_color, off.prices[1].color);
 });
+
+test('usage hours get the price colour and the costs of that hour (#10)', () => {
+  const price = settings.validate({ price: { export_mode: 'net_metering' } }).price;
+  const s = settings.validate({ price: { price_type: 'all_in' }, edge: { mode: 'fixed', green_below: 0.2, red_above: 0.4 } });
+  const list = [{ start: 0, end: H, total: 0.2, raw: 0.2 }, { start: H, end: 2 * H, total: 0.4, raw: 0.4 }];
+  const hours = [{ start: 0, import: 1, export: 0, known: true }, { start: H, import: 2, export: 0.5, known: true }, { start: 2 * H, import: 1, export: 0, known: true }];
+  const c = energy.costs(hours, list, price);
+  const out = energy.colourHours(hours, c.per_hour, s, null);
+  assert.strictEqual(out[0].color, '#17e86e', 'cheap hour green');
+  assert.strictEqual(out[1].color, '#e81717', 'expensive hour red');
+  assert.ok(Math.abs(out[1].cost - (2 * 0.4 - 0.5 * 0.4)) < 1e-9);
+  assert.strictEqual(out[2].price, null, 'hour without a price');
+  assert.strictEqual(out[2].color, '#6b7785', 'neutral grey without a price');
+  assert.notStrictEqual(out[0].color_right, out[0].color, 'flows into the next hour');
+});

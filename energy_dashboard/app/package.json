@@ -1,6 +1,6 @@
 {
   "name": "energy-dashboard",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Interactive energy dashboard for Home Assistant on a wall tablet.",
   "main": "server.js",
   "private": true,

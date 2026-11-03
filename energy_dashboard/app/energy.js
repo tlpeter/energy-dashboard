@@ -60,18 +60,39 @@ function watchedEntities(settings) {
 
 // -------------------------------------------------------------------- prices
 
+// The colour of one all-in price with the user's edge settings.
+function colorOfPrice(total, settings, reference) {
+  const e = settings.edge;
+  return e.mode === 'fixed'
+    ? colors.colorFixed(total, e.green_below, e.red_above, e.colors, e.very_above)
+    : colors.colorFor(total, reference, e.band / 100, e.colors);
+}
+
+// Usage hours with the price colour and costs of that hour (#10).
+function colourHours(hours, perHour, settings, reference) {
+  const out = hours.map((h) => {
+    const x = perHour.get(h.start);
+    const c = x ? colorOfPrice(x.price, settings, reference) : null;
+    return { start: h.start, import: h.import, export: h.export, known: h.known, price: x ? x.price : null, cost: x ? x.cost : null, color: c ? c.css : colors.NEUTRAL };
+  });
+  for (let i = 0; i < out.length; i++) {
+    const h = out[i];
+    const prev = out[i - 1] && out[i - 1].price !== null ? out[i - 1] : null;
+    const next = out[i + 1] && out[i + 1].price !== null ? out[i + 1] : null;
+    h.color_left = prev && h.price !== null ? colors.mix(prev.color, h.color, 0.5) : h.color;
+    h.color_right = next && h.price !== null ? colors.mix(h.color, next.color, 0.5) : h.color;
+  }
+  return out;
+}
+
 // result: prices.fetchPrices() output. Adds total, colour and the reference.
 function priceView(result, settings, now = Date.now()) {
   const cfg = toPriceCfg(settings.price);
   const list = result.prices.map((p) => ({ start: p.start, end: p.end, raw: p.price, total: prices.totalPrice(p.price, cfg) }));
   const win = result.window;
   const ref = colors.reference(list, settings.edge.reference, now, win.tomorrow);
-  const band = settings.edge.band / 100;
-  const fixed = settings.edge.mode === 'fixed';
   for (const p of list) {
-    const c = fixed
-      ? colors.colorFixed(p.total, settings.edge.green_below, settings.edge.red_above, settings.edge.colors, settings.edge.very_above)
-      : colors.colorFor(p.total, ref, band, settings.edge.colors);
+    const c = colorOfPrice(p.total, settings, ref);
     p.color = c.css;
     p.level = c.level;
   }
@@ -196,6 +217,7 @@ function costs(hours, priceList, price, now = Date.now()) {
   let imp = 0;
   let exp = 0;
   let unpriced = 0;
+  const perHour = new Map();
   for (const h of hours) {
     if (!h.known) continue;
     imp += h.import;
@@ -205,13 +227,15 @@ function costs(hours, priceList, price, now = Date.now()) {
     const avgBuy = priceOver(slots, h.start, h.start + 3600000);
     const sell = slots.map((p) => ({ ...p, total: exportPrice(p, price, mode) }));
     const avgSell = priceOver(sell, h.start, h.start + 3600000);
-    cost += h.import * avgBuy - h.export * avgSell;
+    const hourCost = h.import * avgBuy - h.export * avgSell;
+    cost += hourCost;
+    perHour.set(h.start, { price: avgBuy, cost: hourCost });
   }
   const compare = Number(price.compare_tariff);
   const saving = Number.isFinite(compare) && compare > 0 && !unpriced
     ? (imp * compare - (mode === 'net_metering' ? exp * compare : 0)) - cost
     : null;
-  return { import_kwh: imp, export_kwh: exp, cost, saving, unpriced_kwh: unpriced, export_mode: mode };
+  return { import_kwh: imp, export_kwh: exp, cost, saving, unpriced_kwh: unpriced, export_mode: mode, per_hour: perHour };
 }
 
 // Solar forecast (energy/solar_forecast) → per hour Wh, summed over entries.
@@ -248,4 +272,4 @@ function planners(states) {
   return out;
 }
 
-module.exports = { flows, watchedEntities, priceView, hourly, priceOver, exportPrice, costs, solarHours, planners, PLANNERS };
+module.exports = { colorOfPrice, colourHours, flows, watchedEntities, priceView, hourly, priceOver, exportPrice, costs, solarHours, planners, PLANNERS };

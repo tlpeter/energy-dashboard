@@ -130,6 +130,8 @@ test('end to end against a fake Home Assistant', async (t) => {
   await t.test('today: usage and costs from statistics', async () => {
     const d = (await request(port, 'GET', '/api/day?offset=0')).json;
     assert.strictEqual(d.import_kwh, 3);
+    assert.match(d.hours[0].color, /^#[0-9a-f]{6}$/, 'usage hours carry a price colour (#10)');
+    assert.ok(Number.isFinite(d.hours[0].cost));
     assert.strictEqual(d.export_kwh, 1.5);
     assert.ok(d.priced);
     assert.ok(Number.isFinite(d.cost));
